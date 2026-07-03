@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Qochadigan Tugma</title>
+    <style>
+        /* Umumiy sahifa dizayni */
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #fce4ec; /* Och pushti fon */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden; /* Tugma chetga chiqib ketganda scroll paydo bo'lmasligi uchun */
+        }
+
+        h1 {
+            color: #d81b60;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 20px;
+        }
+
+        /* Tugmalar dizayni */
+        button {
+            padding: 12px 30px;
+            font-size: 20px;
+            cursor: pointer;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: background-color 0.3s;
+        }
+
+        #yes {
+            background-color: #4CAF50; /* Yashil rang */
+        }
+
+        #yes:hover {
+            background-color: #45a049;
+        }
+
+        #no {
+            background-color: #f44336; /* Qizil rang */
+            /* Qochadigan element absolute yoki fixed holatida bo'lishi kerak */
+            position: relative; 
+            transition: 0.1s; /* Sal silliqroq qochishi uchun */
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Menga kofe olib berasizmi? 😉</h1>
+    
+    <div class="buttons">
+        <button id="yes" onclick="alert('Kelishdik! 🎉')">Ha</button>
+        <button id="no">Yo'q</button>
+    </div>
+
+    <script>
+        const noBtn = document.getElementById('no');
+
+        // Sichqoncha tugma ustiga kelganda (hover) ishlaydigan hodisa
+        noBtn.addEventListener('mouseover', () => {
+            
+            // Oyna (brauzer) ning balandligi va kengligidan tugma o'lchamini ayirib
+            // bo'sh joy chegarasini aniqlab olamiz
+            const maxX = window.innerWidth - noBtn.offsetWidth;
+            const maxY = window.innerHeight - noBtn.offsetHeight;
+
+            // X va Y o'qlari bo'yicha tasodifiy (random) koordinatalarni yaratamiz
+            const randomX = Math.floor(Math.random() * maxX);
+            const randomY = Math.floor(Math.random() * maxY);
+
+            // Tugmaning joylashuv turini 'fixed' ga o'zgartirib, yangi joyga ko'chiramiz
+            noBtn.style.position = 'fixed';
+            noBtn.style.left = `${randomX}px`;
+            noBtn.style.top = `${randomY}px`;
+        });
+    </script>
+
+</body>
+</html>

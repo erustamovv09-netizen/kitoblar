@@ -11,6 +11,26 @@
   --search-border: #2d313f;
   --border-color: #1f222b;
   --font-inter: 'Inter', sans-serif;
+  --card-bg: rgba(31, 34, 43, 0.4);
+  --card-border: rgba(45, 49, 63, 0.4);
+  --glass-bg: rgba(17, 24, 39, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme="light"] {
+  --bg-color: #f9fafb;
+  --nav-bg: #ffffff;
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --accent-blue: #2563eb;
+  --accent-purple: #7c3aed;
+  --search-bg: #f3f4f6;
+  --search-border: #e5e7eb;
+  --border-color: #e5e7eb;
+  --card-bg: rgba(255, 255, 255, 0.8);
+  --card-border: rgba(229, 231, 235, 0.8);
+  --glass-bg: rgba(255, 255, 255, 0.8);
+  --glass-border: rgba(0, 0, 0, 0.08);
 }
 
 * {
@@ -26,6 +46,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
+  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 a {
@@ -42,4 +63,39 @@ button {
 
 input {
   font-family: inherit;
+}
+
+img,
+picture,
+video {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Fluid container utility used across components */
+.site-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+/* Responsive type scale */
+@media (max-width: 640px) {
+  :root {
+    font-size: 14px;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  :root {
+    font-size: 15px;
+  }
+}
+
+@media (min-width: 1025px) {
+  :root {
+    font-size: 16px;
+  }
 }

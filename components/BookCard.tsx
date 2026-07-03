@@ -1,6 +1,6 @@
 "use client";
 import Image from 'next/image';
-import { Star, Heart } from 'lucide-react';
+import { Star, Heart, Headphones } from 'lucide-react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
@@ -14,9 +14,10 @@ interface BookCardProps {
   rating: number;
   image: string;
   category: string;
+  hasAudio?: boolean;
 }
 
-export default function BookCard({ id, title, author, price, rating, image, category }: BookCardProps) {
+export default function BookCard({ id, title, author, price, rating, image, category, hasAudio }: BookCardProps) {
   const [isFav, setIsFav] = useState(false);
 
   useEffect(() => {
@@ -79,6 +80,11 @@ export default function BookCard({ id, title, author, price, rating, image, cate
             className={styles.image}
           />
           <div className={styles.badge}>{category}</div>
+          {hasAudio && (
+            <div className={styles.audioBadge} title="Audio format mavjud">
+              <Headphones size={14} />
+            </div>
+          )}
         </div>
         <div className={styles.content}>
           <h3 className={styles.title}>{title}</h3>

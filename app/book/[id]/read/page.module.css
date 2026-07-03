@@ -1,0 +1,519 @@
+.readerWrapper {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  font-family: 'Georgia', serif; /* Classic book typeface */
+}
+
+/* Theme Varietals */
+.themeDark {
+  background-color: #090b10;
+  color: #d1d5db;
+}
+
+.themeLight {
+  background-color: #ffffff;
+  color: #1f2937;
+}
+
+.themeSepia {
+  background-color: #f6ebd4;
+  color: #433422;
+}
+
+/* Top Header styles */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.15);
+  backdrop-filter: blur(12px);
+  font-family: var(--font-inter), sans-serif;
+}
+
+.themeDark .header {
+  background-color: rgba(9, 11, 16, 0.85);
+}
+
+.themeLight .header {
+  background-color: rgba(255, 255, 255, 0.85);
+}
+
+.themeSepia .header {
+  background-color: rgba(246, 235, 212, 0.85);
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.navBack {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: inherit;
+  opacity: 0.85;
+  transition: opacity 0.2s ease;
+}
+
+.navBack:hover {
+  opacity: 1;
+}
+
+.divider {
+  opacity: 0.3;
+}
+
+.bookTitle {
+  font-weight: 600;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 250px;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.toolBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background-color: transparent;
+  color: inherit;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  opacity: 0.85;
+}
+
+.toolBtn:hover {
+  background-color: rgba(128, 128, 128, 0.15);
+  opacity: 1;
+}
+
+.toolBtnActive {
+  background-color: rgba(128, 128, 128, 0.2);
+  opacity: 1;
+}
+
+/* Settings Popover */
+.settingsPopover {
+  position: fixed;
+  top: 70px;
+  right: 1.5rem;
+  width: 320px;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
+  z-index: 200;
+  border: 1px solid rgba(128, 128, 128, 0.2);
+  font-family: var(--font-inter), sans-serif;
+  animation: popoverFade 180ms cubic-bezier(.2, .9, .2, 1) forwards;
+}
+
+.themeDark .settingsPopover {
+  background-color: #12141c;
+}
+
+.themeLight .settingsPopover {
+  background-color: #ffffff;
+}
+
+.themeSepia .settingsPopover {
+  background-color: #ecdcb9;
+}
+
+@keyframes popoverFade {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.popoverSection {
+  margin-bottom: 1.25rem;
+}
+
+.popoverSection:last-child {
+  margin-bottom: 0;
+}
+
+.sectionLabel {
+  display: block;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  margin-bottom: 0.6rem;
+  opacity: 0.7;
+}
+
+.themeGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.themeOption {
+  padding: 0.5rem 0.25rem;
+  border-radius: 6px;
+  border: 1px solid rgba(128, 128, 128, 0.3);
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-align: center;
+  cursor: pointer;
+  background-color: transparent;
+  color: inherit;
+}
+
+.themeOptionLight {
+  background-color: #ffffff;
+  color: #111827;
+}
+
+.themeOptionSepia {
+  background-color: #f6ebd4;
+  color: #433422;
+}
+
+.themeOptionDark {
+  background-color: #090b10;
+  color: #ffffff;
+}
+
+.fontControls {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.fontControls button {
+  flex: 1;
+  padding: 0.5rem;
+  border-radius: 6px;
+  border: 1px solid rgba(128, 128, 128, 0.3);
+  background-color: rgba(128, 128, 128, 0.1);
+  color: inherit;
+  font-weight: bold;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.fontControls button:hover:not(:disabled) {
+  background-color: rgba(128, 128, 128, 0.25);
+}
+
+.fontControls button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.lineHeightGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.lhOption {
+  padding: 0.5rem;
+  border-radius: 6px;
+  border: 1px solid rgba(128, 128, 128, 0.3);
+  background-color: transparent;
+  color: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.optionActive {
+  border-color: #3b82f6;
+  background-color: rgba(59, 130, 246, 0.15) !important;
+}
+
+/* Sidebar Layout */
+.sidebarOverlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 500;
+}
+
+.sidebar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  z-index: 510;
+  border-right: 1px solid rgba(128, 128, 128, 0.2);
+  animation: slideIn 220ms cubic-bezier(.2, .9, .2, 1) forwards;
+  font-family: var(--font-inter), sans-serif;
+}
+
+.themeDark .sidebar {
+  background-color: #12141c;
+}
+
+.themeLight .sidebar {
+  background-color: #ffffff;
+}
+
+.themeSepia .sidebar {
+  background-color: #ecdcb9;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.sidebarHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.15);
+}
+
+.sidebarHeader h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.closeBtn {
+  font-size: 1.5rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.7;
+}
+
+.closeBtn:hover {
+  opacity: 1;
+}
+
+.sidebarList {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 0;
+}
+
+.sidebarItem {
+  width: 100%;
+  padding: 1rem 1.5rem;
+  display: flex;
+  align-items: center;
+  text-align: left;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
+  transition: background-color 0.2s ease;
+  font-size: 0.95rem;
+  gap: 0.75rem;
+}
+
+.sidebarItem:hover {
+  background-color: rgba(128, 128, 128, 0.1);
+}
+
+.sidebarItemActive {
+  background-color: rgba(59, 130, 246, 0.12);
+  font-weight: 600;
+}
+
+.sidebarIdx {
+  opacity: 0.5;
+  font-size: 0.85rem;
+  width: 20px;
+}
+
+.sidebarChTitle {
+  flex: 1;
+}
+
+.activeCheck {
+  color: #3b82f6;
+}
+
+/* Progress bar styles */
+.progressLine {
+  height: 3px;
+  background-color: rgba(128, 128, 128, 0.15);
+  width: 100%;
+}
+
+.progressBar {
+  height: 100%;
+  background-color: #3b82f6;
+  transition: width 0.3s ease;
+}
+
+/* Reading Body styling */
+.mainContainer {
+  flex: 1;
+  max-width: 760px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 3.5rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.readerBody {
+  line-height: 1.75;
+}
+
+.lh_normal {
+  line-height: 1.6;
+}
+
+.lh_relaxed {
+  line-height: 1.85;
+}
+
+.lh_loose {
+  line-height: 2.1;
+}
+
+.chapterTag {
+  display: block;
+  font-family: var(--font-inter), sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+  opacity: 0.6;
+}
+
+.chapterTitle {
+  font-size: 2.25rem;
+  font-weight: 800;
+  margin-bottom: 2.5rem;
+  line-height: 1.2;
+}
+
+.paragraph {
+  margin-bottom: 1.5rem;
+  text-align: justify;
+}
+
+/* Prev/Next Navigation */
+.navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 5rem;
+  padding-top: 2rem;
+  border-top: 1px solid rgba(128, 128, 128, 0.15);
+  font-family: var(--font-inter), sans-serif;
+}
+
+.navBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  border: 1px solid rgba(128, 128, 128, 0.25);
+  background-color: transparent;
+  color: inherit;
+  font-weight: 500;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.navBtn:hover:not(:disabled) {
+  background-color: rgba(128, 128, 128, 0.1);
+}
+
+.navBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.navPageIndicator {
+  font-size: 0.85rem;
+  opacity: 0.6;
+}
+
+/* Error page styles */
+.errorContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 1rem;
+}
+
+.errorBtn {
+  padding: 0.75rem 1.5rem;
+  background-color: #3b82f6;
+  color: white;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .header {
+    padding: 0 1rem;
+  }
+  
+  .bookTitle {
+    display: none;
+  }
+  
+  .divider {
+    display: none;
+  }
+  
+  .settingsPopover {
+    width: calc(100vw - 2rem);
+    right: 1rem;
+    left: 1rem;
+  }
+  
+  .mainContainer {
+    padding: 2rem 1rem;
+  }
+  
+  .chapterTitle {
+    font-size: 1.75rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .navBtn span {
+    display: none;
+  }
+}
