@@ -27,7 +27,6 @@ export default async function BookDetails({ params }: { params: Promise<{ id: st
           <span>Orqaga qaytish</span>
         </Link>
 
-
         <div className={styles.content}>
           <div className={styles.imageSection}>
             <div className={styles.imageWrapper}>

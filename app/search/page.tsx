@@ -19,11 +19,13 @@ function SearchContent() {
   const query = searchParams.get('q') || '';
   
   const [books, setBooks] = useState<Book[]>([]);
+  const [booksLoading, setBooksLoading] = useState(true);
 
   useEffect(() => {
     async function loadBooks() {
       const data = await api.getBooks();
       if (data && data.length > 0) setBooks(data);
+      setBooksLoading(false);
     }
     loadBooks();
   }, []);
@@ -45,7 +47,7 @@ function SearchContent() {
 
   // Pricing limits in unique books list
   const maxAvailablePrice = useMemo(() => {
-    return uniqueBooks.reduce((max, b) => Math.max(max, getNumericPrice(b.price)), 100000);
+    return uniqueBooks.reduce((max, b) => Math.max(max, getNumericPrice(b.price)), 300000);
   }, [uniqueBooks]);
 
   // Filter & Sort States
@@ -225,7 +227,20 @@ function SearchContent() {
 
         {/* Right Books Grid Area */}
         <section className={styles.gridArea}>
-          {results.length === 0 ? (
+          {booksLoading ? (
+            <div className={styles.grid}>
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} style={{ borderRadius: '18px', overflow: 'hidden', border: '1px solid var(--card-border)', background: 'var(--card-bg)' }}>
+                  <div className="skeleton" style={{ aspectRatio: '3/4', width: '100%' }} />
+                  <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div className="skeleton" style={{ height: '14px', width: '80%', borderRadius: '6px' }} />
+                    <div className="skeleton" style={{ height: '12px', width: '55%', borderRadius: '6px' }} />
+                    <div className="skeleton" style={{ height: '12px', width: '40%', borderRadius: '6px', marginTop: '4px' }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : results.length === 0 ? (
             <div className={styles.noResults}>
               <h2>Kitoblar topilmadi</h2>
               <p>Belgilangan filtrlar bo&apos;yicha hech qanday kitob topilmadi. Filtr parametrlarini o&apos;zgartirib ko&apos;ring yoki &quot;Tozalash&quot; tugmasini bosing.</p>

@@ -1,20 +1,48 @@
 .hero {
-  min-height: 80vh;
+  min-height: 85vh;
   display: flex;
   align-items: center;
-  background: linear-gradient(135deg, var(--bg-color) 0%, var(--search-bg) 100%);
   position: relative;
   overflow: hidden;
   padding: 4rem 0;
+  background: var(--bg-color);
 }
 
+/* Animated background glow orbs */
 .hero::before {
   content: '';
   position: absolute;
   inset: 0;
   background: 
-    radial-gradient(ellipse 60% 50% at 70% 50%, rgba(59, 130, 246, 0.08) 0%, transparent 70%),
-    radial-gradient(ellipse 40% 60% at 30% 30%, rgba(139, 92, 246, 0.06) 0%, transparent 70%);
+    radial-gradient(ellipse 65% 55% at 75% 50%, rgba(79, 142, 247, 0.1) 0%, transparent 65%),
+    radial-gradient(ellipse 45% 65% at 25% 35%, rgba(155, 109, 255, 0.08) 0%, transparent 65%),
+    radial-gradient(ellipse 30% 40% at 50% 80%, rgba(16, 185, 129, 0.04) 0%, transparent 65%);
+  pointer-events: none;
+  animation: heroGlow 8s ease-in-out infinite alternate;
+}
+
+@keyframes heroGlow {
+  0% {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+/* Floating particles */
+.hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: 
+    radial-gradient(circle 1px at 20% 30%, rgba(79, 142, 247, 0.4) 0%, transparent 100%),
+    radial-gradient(circle 1px at 80% 20%, rgba(155, 109, 255, 0.4) 0%, transparent 100%),
+    radial-gradient(circle 1px at 60% 70%, rgba(79, 142, 247, 0.3) 0%, transparent 100%),
+    radial-gradient(circle 1.5px at 40% 85%, rgba(16, 185, 129, 0.3) 0%, transparent 100%),
+    radial-gradient(circle 1px at 90% 60%, rgba(155, 109, 255, 0.3) 0%, transparent 100%);
   pointer-events: none;
 }
 
@@ -34,43 +62,60 @@
 .content {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
-  max-width: 560px;
+  gap: 1.5rem;
+  max-width: 580px;
 }
 
 .badge {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  background: rgba(59, 130, 246, 0.1);
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  background: rgba(79, 142, 247, 0.1);
+  border: 1px solid rgba(79, 142, 247, 0.25);
   color: var(--accent-blue);
-  padding: 0.4rem 1rem;
+  padding: 0.4rem 1.1rem;
   border-radius: 999px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   width: fit-content;
+  box-shadow: 0 0 12px rgba(79, 142, 247, 0.1);
+}
+
+.badge::before {
+  content: '✦';
+  font-size: 0.65rem;
 }
 
 .title {
-  font-size: clamp(2.5rem, 5vw, 4rem);
+  font-size: clamp(2.5rem, 5vw, 4.2rem);
   font-weight: 800;
-  line-height: 1.1;
-  letter-spacing: -0.03em;
-  color: var(--text-primary);
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+  background: linear-gradient(160deg, var(--text-primary) 40%, var(--accent-blue) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .author {
-  font-size: 1rem;
+  font-size: 1.05rem;
   color: var(--accent-purple);
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.author::before {
+  content: '—';
+  opacity: 0.5;
 }
 
 .description {
   font-size: 1rem;
-  line-height: 1.7;
+  line-height: 1.75;
   color: var(--text-secondary);
   max-width: 480px;
 }
@@ -85,56 +130,80 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.875rem 2rem;
-  border-radius: 12px;
+  padding: 0.9rem 2rem;
+  border-radius: 14px;
   font-weight: 700;
   font-size: 0.95rem;
   background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
   color: #ffffff;
   text-decoration: none;
-  transition: opacity 0.2s, transform 0.2s;
-  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+  transition: opacity 0.2s, transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 20px rgba(79, 142, 247, 0.35);
+  position: relative;
+  overflow: hidden;
+}
+
+.primaryBtn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 100%);
+  border-radius: inherit;
 }
 
 .primaryBtn:hover {
-  opacity: 0.9;
-  transform: translateY(-2px);
+  opacity: 0.92;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 30px rgba(79, 142, 247, 0.45);
 }
 
 .secondaryBtn {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.875rem 2rem;
-  border-radius: 12px;
+  padding: 0.9rem 2rem;
+  border-radius: 14px;
   font-weight: 600;
   font-size: 0.95rem;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.04);
   color: var(--text-primary);
-  border: 1.5px solid var(--border-color);
+  border: 1.5px solid var(--card-border);
   text-decoration: none;
   transition: border-color 0.2s, background 0.2s, transform 0.2s;
+  backdrop-filter: blur(8px);
 }
 
 .secondaryBtn:hover {
   border-color: var(--accent-blue);
-  background: rgba(59, 130, 246, 0.05);
-  transform: translateY(-2px);
+  background: rgba(79, 142, 247, 0.06);
+  transform: translateY(-3px);
 }
 
 .imageWrapper {
-  width: 320px;
+  width: 300px;
   height: 420px;
   flex-shrink: 0;
   position: relative;
-  filter: drop-shadow(0 25px 50px rgba(0, 0, 0, 0.5));
+  filter: drop-shadow(0 30px 60px rgba(0, 0, 0, 0.6));
+}
+
+/* Glow ring behind book image */
+.imageWrapper::before {
+  content: '';
+  position: absolute;
+  inset: -15px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(79, 142, 247, 0.12) 0%, rgba(155, 109, 255, 0.12) 100%);
+  filter: blur(20px);
+  z-index: -1;
 }
 
 .image {
   width: 100% !important;
   height: 100% !important;
   object-fit: cover;
-  border-radius: 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 /* Responsive */
@@ -155,9 +224,13 @@
   }
 
   .imageWrapper {
-    width: 240px;
+    width: 220px;
     height: 300px;
     margin: 0 auto;
+  }
+
+  .author::before {
+    display: none;
   }
 }
 
@@ -176,7 +249,11 @@
   }
 
   .imageWrapper {
-    width: 200px;
-    height: 260px;
+    width: 180px;
+    height: 250px;
+  }
+
+  .buttons {
+    justify-content: center;
   }
 }

@@ -42,9 +42,7 @@ const emojiAvatars = ['📚', '💡', '🚀', '😎', '🧠', '🎨', '📖', '�
 
 function initials(fullName: string): string {
     if (!fullName.trim()) return '?';
-    const parts = fullName.trim().split(/\s+/);
-    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    return fullName.trim()[0].toUpperCase();
 }
 
 const accentColors = {
@@ -663,7 +661,11 @@ export default function AccountPage() {
                             <div className={styles.sidebarControls}>
                                 <button 
                                     className={`${styles.btn} ${editing ? styles.btnSecondary : styles.btnPrimary} `} 
-                                    onClick={() => setEditing((s) => !s)}
+                                    onClick={() => {
+                                        const next = !editing;
+                                        setEditing(next);
+                                        if (next) setActiveTab('profile');
+                                    }}
                                     style={{ width: '100%' }}
                                 >
                                     <Edit3 size={16} />

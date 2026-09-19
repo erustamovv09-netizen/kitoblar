@@ -24,11 +24,14 @@
 }
 
 .title {
-  font-size: 2.5rem;
+  font-size: 2.2rem;
   font-weight: 800;
-  color: var(--text-primary);
+  background: linear-gradient(135deg, var(--text-primary) 50%, var(--accent-blue) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
   margin-bottom: 0.5rem;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
 }
 
 .description {

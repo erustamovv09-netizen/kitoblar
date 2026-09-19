@@ -14,8 +14,7 @@ import {
   Minimize2,
   Menu
 } from 'lucide-react';
-import booksDB from '../../../lib/books';
-import { api } from '../../../lib/api';
+import { api, Book } from '../../../lib/api';
 import styles from './page.module.css';
 
 // Mock contents for the books in the DB to make the reader feel real
@@ -76,7 +75,7 @@ export default function BookReaderPage({ params }: { params: Promise<{ id: strin
   const resolvedParams = use(params);
   const router = useRouter();
   const bookId = resolvedParams.id;
-  const book = booksDB.find(b => b.id === bookId);
+  const [book, setBook] = useState<Book | null>(null);
 
   // Reader Customization State
   const [theme, setTheme] = useState<'light' | 'dark' | 'sepia'>('dark');
@@ -89,6 +88,15 @@ export default function BookReaderPage({ params }: { params: Promise<{ id: strin
   // Content Navigation State
   const [currentChapter, setCurrentChapter] = useState(0);
   const [loading, setLoading] = useState(true);
+
+  // Load book from API
+  useEffect(() => {
+    async function loadBook() {
+      const data = await api.getBook(bookId);
+      setBook(data);
+    }
+    loadBook();
+  }, [bookId]);
 
   const chapters = bookChapters[bookId] || generateChapters(book?.title || 'Kitob');
   const totalChapters = chapters.length;
@@ -137,7 +145,7 @@ export default function BookReaderPage({ params }: { params: Promise<{ id: strin
 
   const handlePrevChapter = () => {
     if (currentChapter > 0) {
-      setCurrentChapter(prev => prev - 0 - 1);
+      setCurrentChapter(prev => prev - 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
@@ -162,11 +170,20 @@ export default function BookReaderPage({ params }: { params: Promise<{ id: strin
     localStorage.setItem('reader_font_size', String(size));
   };
 
-  if (!book) {
+  if (!loading && !book) {
     return (
       <div className={styles.errorContainer}>
         <h2>Kitob topilmadi</h2>
         <Link href="/" className={styles.errorBtn}>Bosh sahifaga qaytish</Link>
+      </div>
+    );
+  }
+
+  if (loading && !book) {
+    return (
+      <div className={styles.errorContainer} style={{ color: 'var(--text-secondary)' }}>
+        <BookOpen size={48} style={{ margin: '0 auto 1rem', display: 'block', opacity: 0.5 }} />
+        <p>Yuklanmoqda...</p>
       </div>
     );
   }

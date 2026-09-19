@@ -1,6 +1,6 @@
 "use client";
 import Link from 'next/link';
-import { BookOpen, Search, Heart, User, Sun, Moon, Menu, X } from 'lucide-react';
+import { BookOpen, Search, Heart, User, Sun, Moon, Menu, X, LogOut, LogIn } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './Navbar.module.css';
@@ -10,6 +10,8 @@ export default function Navbar() {
   const [favCount, setFavCount] = useState(0);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userName, setUserName] = useState('');
   const router = useRouter();
 
   const handleSearch = (e: React.FormEvent) => {
@@ -28,6 +30,32 @@ export default function Navbar() {
     } else {
       document.documentElement.setAttribute('data-theme', 'dark');
     }
+  }, []);
+
+  // Auth state
+  useEffect(() => {
+    function checkAuth() {
+      try {
+        const raw = localStorage.getItem('user');
+        if (raw) {
+          const user = JSON.parse(raw);
+          setIsLoggedIn(true);
+          setUserName(user.name || user.email?.split('@')[0] || 'Foydalanuvchi');
+        } else {
+          setIsLoggedIn(false);
+          setUserName('');
+        }
+      } catch {
+        setIsLoggedIn(false);
+      }
+    }
+    checkAuth();
+    window.addEventListener('auth-changed', checkAuth);
+    window.addEventListener('storage', checkAuth);
+    return () => {
+      window.removeEventListener('auth-changed', checkAuth);
+      window.removeEventListener('storage', checkAuth);
+    };
   }, []);
 
   const toggleTheme = () => {
@@ -113,9 +141,30 @@ export default function Navbar() {
               </Link>
               {favCount > 0 && <span className={styles.favBadge}>{favCount > 99 ? '99+' : favCount}</span>}
             </div>
-            <Link href="/account" className={styles.actionBtn} aria-label="Profil">
-              <User size={20} />
-            </Link>
+            {isLoggedIn ? (
+              <>
+                <Link href="/account" className={styles.actionBtn} aria-label="Profil" title={userName}>
+                  <User size={20} />
+                </Link>
+                <button
+                  className={styles.actionBtn}
+                  aria-label="Chiqish"
+                  title="Chiqish"
+                  onClick={() => {
+                    localStorage.removeItem('user');
+                    window.dispatchEvent(new Event('auth-changed'));
+                    router.push('/');
+                  }}
+                >
+                  <LogOut size={20} />
+                </button>
+              </>
+            ) : (
+              <Link href="/login" className={styles.loginBtn} aria-label="Kirish">
+                <LogIn size={16} />
+                <span>Kirish</span>
+              </Link>
+            )}
           </div>
         </div>
 
@@ -129,9 +178,16 @@ export default function Navbar() {
           >
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
-          <Link href="/account" className={styles.mobileActionHeaderBtn} aria-label="Profil" onClick={() => setMobileOpen(false)}>
-            <User size={18} />
-          </Link>
+          {isLoggedIn ? (
+            <Link href="/account" className={styles.mobileActionHeaderBtn} aria-label="Profil" onClick={() => setMobileOpen(false)}>
+              <User size={18} />
+            </Link>
+          ) : (
+            <Link href="/login" className={styles.mobileLoginBtn} onClick={() => setMobileOpen(false)}>
+              <LogIn size={16} />
+              <span>Kirish</span>
+            </Link>
+          )}
           <button
             className={styles.hamburger}
             onClick={() => setMobileOpen(v => !v)}
@@ -160,10 +216,28 @@ export default function Navbar() {
               <Heart size={18} />
               <span>Sevimlilar {favCount > 0 && `(${favCount})`}</span>
             </Link>
-            <Link href="/account" className={styles.mobileActionLink} onClick={() => setMobileOpen(false)}>
-              <User size={18} />
-              <span>Profil</span>
-            </Link>
+            {isLoggedIn ? (
+              <>
+                <Link href="/account" className={styles.mobileActionLink} onClick={() => setMobileOpen(false)}>
+                  <User size={18} />
+                  <span>Profil</span>
+                </Link>
+                <button onClick={() => {
+                  localStorage.removeItem('user');
+                  window.dispatchEvent(new Event('auth-changed'));
+                  setMobileOpen(false);
+                  router.push('/');
+                }} className={styles.mobileActionLink}>
+                  <LogOut size={18} />
+                  <span>Chiqish</span>
+                </button>
+              </>
+            ) : (
+              <Link href="/login" className={styles.mobileActionLink} onClick={() => setMobileOpen(false)}>
+                <LogIn size={18} />
+                <span>Kirish</span>
+              </Link>
+            )}
             <button onClick={() => { toggleTheme(); setMobileOpen(false); }} className={styles.mobileActionLink}>
               {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
               <span>{theme === 'dark' ? "Yorug' mavzu" : "Qorong'u mavzu"}</span>

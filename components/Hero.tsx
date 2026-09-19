@@ -11,6 +11,17 @@ export default function Hero() {
 
   useEffect(() => {
     async function load() {
+      // First check admin_books in localStorage for a weekly top pick
+      try {
+        const adminBooks = JSON.parse(localStorage.getItem('admin_books') || '[]');
+        const adminWeekly = adminBooks.find((b: any) => b.is_weekly_top || b.isWeeklyTop);
+        if (adminWeekly) {
+          setHeroBook(adminWeekly);
+          return;
+        }
+      } catch {}
+
+      // Fall back to API books
       const books = await api.getBooks();
       if (books && books.length > 0) {
         // Find weekly top or fallback to first book

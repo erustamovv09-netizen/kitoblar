@@ -27,38 +27,63 @@ export default function ContactPage() {
           <div className="contact-info">
             <h2 className="contact-info-title">Murojaat ma&apos;lumotlari</h2>
 
+            {/* Email */}
             <div className="contact-card">
-              <div className="contact-card-icon">📧</div>
+              <div className="contact-card-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent-blue)' }}>
+                  <rect x="2" y="4" width="20" height="16" rx="3" />
+                  <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+                </svg>
+              </div>
               <div>
                 <div className="contact-card-label">Email</div>
-                <a href="mailto:info@kitoblar.uz" className="contact-card-value">info@kitoblar.uz</a>
+                <a href="mailto:e.rustamovv.09@gmail.com" className="contact-card-value">e.rustamovv.09@gmail.com</a>
               </div>
             </div>
 
+            {/* Telegram */}
             <div className="contact-card">
-              <div className="contact-card-icon">📱</div>
+              <div className="contact-card-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" style={{ color: '#2CA5E0' }}>
+                  <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
+                </svg>
+              </div>
               <div>
                 <div className="contact-card-label">Telegram</div>
-                <a href="https://t.me/kitoblar" target="_blank" rel="noreferrer" className="contact-card-value">@kitoblar</a>
+                <a href="https://t.me/Rustamov_E" target="_blank" rel="noreferrer" className="contact-card-value">@Rustamov_E</a>
               </div>
             </div>
 
+            {/* Instagram */}
             <div className="contact-card">
-              <div className="contact-card-icon">📍</div>
+              <div className="contact-card-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#E1306C' }}>
+                  <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+                  <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                  <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+                </svg>
+              </div>
               <div>
-                <div className="contact-card-label">Manzil</div>
-                <span className="contact-card-value">Toshkent sh., O&apos;zbekiston</span>
+                <div className="contact-card-label">Instagram</div>
+                <a href="https://instagram.com/rustamovv.09" target="_blank" rel="noreferrer" className="contact-card-value">@rustamovv.09</a>
               </div>
             </div>
 
+            {/* Ish vaqti */}
             <div className="contact-card">
-              <div className="contact-card-icon">🕐</div>
+              <div className="contact-card-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent-purple)' }}>
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+              </div>
               <div>
                 <div className="contact-card-label">Ish vaqti</div>
                 <span className="contact-card-value">Du–Sha, 09:00–18:00</span>
               </div>
             </div>
           </div>
+
 
           {/* Client-side form */}
           <ContactForm />

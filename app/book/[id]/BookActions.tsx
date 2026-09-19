@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Heart, Share2, BookOpen, Headphones, Package } from 'lucide-react';
 import styles from './page.module.css';
 
-type Favorite = { id: string; title: string };
+type Favorite = { id: string; title: string; author: string; price: string; rating: number; image: string; category: string };
 type Book = {
     id: string;
     title: string;
@@ -12,6 +12,8 @@ type Book = {
     description: string;
     price: string;
     rating: number;
+    image: string;
+    category: string;
     hasAudio?: boolean;
     audioUrl?: string;
 };
@@ -52,7 +54,15 @@ export default function BookActions({ book, recommended }: { book: Book; recomme
                 setIsFav(false);
                 setToast('Sevimlilardan olindi');
             } else {
-                next = [{ id: book.id, title: book.title }, ...list];
+                next = [{ 
+                    id: book.id, 
+                    title: book.title,
+                    author: book.author,
+                    price: book.price,
+                    rating: book.rating,
+                    image: (book as any).image || '',
+                    category: book.category,
+                }, ...list];
                 setIsFav(true);
                 setToast('Sevimlilarga qo\'shildi');
             }
