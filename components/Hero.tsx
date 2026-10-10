@@ -6,8 +6,11 @@ import { motion } from 'framer-motion';
 import { api, Book } from '@/app/lib/api';
 import styles from './Hero.module.css';
 
+const MAX_CHARS = 120;
+
 export default function Hero() {
   const [heroBook, setHeroBook] = useState<Book | null>(null);
+  const [descExpanded, setDescExpanded] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -24,7 +27,6 @@ export default function Hero() {
       // Fall back to API books
       const books = await api.getBooks();
       if (books && books.length > 0) {
-        // Find weekly top or fallback to first book
         const top = books.find(b => (b as any).is_weekly_top || (b as any).is_trending) || books[0];
         setHeroBook(top);
       }
@@ -32,11 +34,16 @@ export default function Hero() {
     load();
   }, []);
 
-  const bookTitle = heroBook ? heroBook.title : "O'tkan kunlar";
+  const bookTitle  = heroBook ? heroBook.title : "O'tkan kunlar";
   const bookAuthor = heroBook ? `Muallif: ${heroBook.author}` : "Muallif: Abdulla Qodiriy";
-  const bookDesc = heroBook ? heroBook.description : "O'zbek adabiyotidagi birinchi roman. Asarda XIX asr o'rtalaridagi Toshkent va Qo'qon hayoti, muhabbat va xiyonat, qahramonlik va fojia tasvirlangan.";
-  const bookLink = heroBook ? `/book/${heroBook.id}` : "/book/hero";
-  const bookImage = heroBook ? heroBook.image : "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop";
+  const bookDesc   = heroBook ? heroBook.description : "O'zbek adabiyotidagi birinchi roman. Asarda XIX asr o'rtalaridagi Toshkent va Qo'qon hayoti, muhabbat va xiyonat, qahramonlik va fojia tasvirlangan.";
+  const bookLink   = heroBook ? `/book/${heroBook.id}` : "/book/hero";
+  const bookImage  = heroBook ? heroBook.image : "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop";
+
+  const isLong = bookDesc.length > MAX_CHARS;
+  const shownDesc = isLong && !descExpanded
+    ? bookDesc.slice(0, MAX_CHARS).trimEnd()
+    : bookDesc;
 
   return (
     <section className={styles.hero}>
@@ -71,14 +78,52 @@ export default function Hero() {
           >
             {bookAuthor}
           </motion.p>
-          <motion.p
-            className={styles.description}
+
+          {/* Tavsif — qisqartirilgan yoki to'liq */}
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.5 }}
           >
-            {bookDesc}
-          </motion.p>
+            <p className={styles.description} style={{ margin: 0 }}>
+              {shownDesc}
+              {isLong && !descExpanded && (
+                <>
+                  {'... '}
+                  <button
+                    onClick={() => setDescExpanded(true)}
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: 'rgba(255,255,255,0.6)', fontSize: 'inherit',
+                      fontFamily: 'inherit', padding: 0, fontWeight: 700,
+                      letterSpacing: '0.06em'
+                    }}
+                    aria-label="Ko'proq ko'rish"
+                  >
+                    •••
+                  </button>
+                </>
+              )}
+              {isLong && descExpanded && (
+                <>
+                  {' '}
+                  <button
+                    onClick={() => setDescExpanded(false)}
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: 'rgba(255,255,255,0.4)', fontSize: '0.8em',
+                      fontFamily: 'inherit', padding: 0, fontWeight: 600,
+                      textDecoration: 'underline', textUnderlineOffset: '2px'
+                    }}
+                    aria-label="Yopish"
+                  >
+                    yopish
+                  </button>
+                </>
+              )}
+            </p>
+          </motion.div>
+
           <motion.div
             className={styles.buttons}
             initial={{ opacity: 0, y: 20 }}

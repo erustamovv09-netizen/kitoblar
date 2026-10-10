@@ -47,7 +47,7 @@ export default function PrivacyPage() {
           <h1 className="privacy-title">
             Maʼlumotlaringiz <span className="privacy-accent">xavfsizligi</span>
           </h1>
-          <p className="privacy-desc">Oxirgi yangilangan: 1-yanvar 2024-yil</p>
+          <p className="privacy-desc">Oxirgi yangilangan: 19-sentabr 2026-yil</p>
         </div>
       </section>
 
@@ -75,7 +75,7 @@ export default function PrivacyPage() {
             <div className="privacy-highlight-title">Sizning maxfiyligingiz — bizning ustuvorligimiz</div>
             <div className="privacy-highlight-text">
               Savollaringiz boʻlsa, <a href="/contact" className="privacy-link">Aloqa sahifasi</a> orqali murojaat qiling.
-              30 kun ichida javob berishga harakat qilamiz.
+              7 kun ichida javob berishga harakat qilamiz.
             </div>
           </div>
         </div>
@@ -99,9 +99,9 @@ export default function PrivacyPage() {
         .privacy-hero-inner { max-width: 600px; margin: 0 auto; }
         .privacy-badge {
           display: inline-block;
-          background: rgba(16, 185, 129, 0.12);
-          color: #10b981;
-          border: 1px solid rgba(16, 185, 129, 0.3);
+          background: var(--theme-hover);
+          color: var(--theme-color);
+          border: 1px solid var(--theme-hover);
           border-radius: 999px;
           padding: 0.35rem 1rem;
           font-size: 0.85rem;
@@ -119,7 +119,7 @@ export default function PrivacyPage() {
           letter-spacing: -0.03em;
         }
         .privacy-accent {
-          background: linear-gradient(90deg, #10b981, var(--accent-blue));
+          background: linear-gradient(90deg, var(--theme-color), var(--accent-purple));
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
@@ -139,8 +139,8 @@ export default function PrivacyPage() {
           line-height: 1.75;
           margin-bottom: 2.5rem;
           padding: 1.5rem 2rem;
-          background: rgba(16,185,129,0.06);
-          border-left: 3px solid #10b981;
+          background: var(--theme-hover);
+          border-left: 3px solid var(--theme-color);
           border-radius: 0 12px 12px 0;
         }
         .privacy-sections {
@@ -157,7 +157,7 @@ export default function PrivacyPage() {
           transition: border-color 0.2s;
         }
         .privacy-section:hover {
-          border-color: rgba(16,185,129,0.25);
+          border-color: var(--theme-color);
         }
         .privacy-section-header {
           display: flex;
@@ -181,8 +181,8 @@ export default function PrivacyPage() {
           display: flex;
           align-items: flex-start;
           gap: 1.25rem;
-          background: linear-gradient(135deg, rgba(16,185,129,0.08), rgba(59,130,246,0.08));
-          border: 1px solid rgba(16,185,129,0.25);
+          background: var(--theme-hover);
+          border: 1px solid var(--theme-color);
           border-radius: 16px;
           padding: 1.75rem 2rem;
         }
@@ -198,7 +198,7 @@ export default function PrivacyPage() {
           line-height: 1.6;
         }
         .privacy-link {
-          color: var(--accent-blue);
+          color: var(--theme-color);
           text-decoration: none;
           transition: opacity 0.2s;
         }
@@ -208,7 +208,7 @@ export default function PrivacyPage() {
           padding: 1rem 1.5rem 0;
         }
         .back-link {
-          color: var(--accent-blue);
+          color: var(--theme-color);
           font-size: 0.95rem;
           transition: opacity 0.2s;
           text-decoration: none;

@@ -89,7 +89,7 @@ export default function BookReviews({ bookId }: BookReviewsProps) {
   });
 
   return (
-    <div className={styles.reviewsSection}>
+    <div id="book-reviews-section" className={styles.reviewsSection}>
       <h3 className={styles.sectionTitle}>
         <MessageSquare size={20} className={styles.titleIcon} />
         O'quvchilar fikrlari ({totalReviews})

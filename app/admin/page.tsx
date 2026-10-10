@@ -6,28 +6,33 @@ import { BookOpen, Users, Star, TrendingUp, PlusCircle, ArrowRight, Eye, Clock, 
 import { api, Book } from '../lib/api';
 
 export default function AdminDashboard() {
+  const [statsData, setStatsData] = useState<any>(null);
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.getBooks().then(data => {
-      setBooks(data || []);
+    const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+    
+    Promise.all([
+      fetch('http://' + host + ':8000/api/admin/stats/').then(res => res.json()),
+      api.getBooks()
+    ]).then(([stats, booksData]) => {
+      setStatsData(stats);
+      setBooks(booksData || []);
       setLoading(false);
-    });
+    }).catch(() => setLoading(false));
   }, []);
 
-  const totalBooks = books.length;
-  const avgRating = books.length > 0
-    ? (books.reduce((sum, b) => sum + b.rating, 0) / books.length).toFixed(1)
-    : '0.0';
-  const audioBooks = books.filter(b => b.hasAudio).length;
-  const categories = [...new Set(books.map(b => b.category))].length;
+  const totalBooks = statsData?.total_books || 0;
+  const avgRating = statsData?.avg_rating || '0.0';
+  const totalUsers = statsData?.total_users || 0;
+  const totalReviews = statsData?.total_reviews || 0;
 
   const stats = [
-    { label: 'Jami kitoblar', value: totalBooks, icon: <BookOpen size={22} />, color: '#4f8ef7', bg: 'rgba(79,142,247,0.1)' },
+    { label: 'Jami kitoblar', value: totalBooks, icon: <BookOpen size={22} />, color: 'var(--theme-color, var(--accent-blue))', bg: 'var(--theme-hover)' },
+    { label: "Foydalanuvchilar", value: totalUsers, icon: <Users size={22} />, color: '#10b981', bg: 'rgba(16,185,129,0.1)' },
     { label: "O'rtacha reyting", value: avgRating, icon: <Star size={22} />, color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
-    { label: 'Audio kitoblar', value: audioBooks, icon: <Flame size={22} />, color: '#10b981', bg: 'rgba(16,185,129,0.1)' },
-    { label: 'Kategoriyalar', value: categories, icon: <TrendingUp size={22} />, color: '#9b6dff', bg: 'rgba(155,109,255,0.1)' },
+    { label: 'Fikr va mulohazalar', value: totalReviews, icon: <TrendingUp size={22} />, color: '#9b6dff', bg: 'rgba(155,109,255,0.1)' },
   ];
 
   return (
@@ -62,10 +67,10 @@ export default function AdminDashboard() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
         <Link href="/admin/books/add" style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          background: 'linear-gradient(135deg, var(--accent-blue), var(--accent-purple))',
+          background: 'var(--theme-color, var(--accent-blue))',
           borderRadius: '16px', padding: '1.5rem', textDecoration: 'none', color: '#fff',
           transition: 'transform 0.2s, box-shadow 0.2s',
-          boxShadow: '0 4px 20px rgba(79,142,247,0.3)'
+          boxShadow: '0 4px 20px var(--theme-hover, rgba(79,142,247,0.3))'
         }}>
           <div>
             <div style={{ fontWeight: 700, fontSize: '1.05rem', marginBottom: '4px' }}>Kitob qo&apos;shish</div>
@@ -91,7 +96,7 @@ export default function AdminDashboard() {
       <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: '16px', padding: '1.5rem', backdropFilter: 'blur(8px)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
           <h2 style={{ fontSize: '1.1rem', fontWeight: 700 }}>
-            <Clock size={18} style={{ verticalAlign: 'middle', marginRight: '8px', color: 'var(--accent-blue)' }} />
+            <Clock size={18} style={{ verticalAlign: 'middle', marginRight: '8px', color: 'var(--theme-color, var(--accent-blue))' }} />
             Oxirgi kitoblar
           </h2>
           <Link href="/admin/books" style={{ fontSize: '0.85rem', color: 'var(--accent-blue)', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}>

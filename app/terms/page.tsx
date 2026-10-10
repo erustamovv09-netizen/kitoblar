@@ -45,7 +45,7 @@ export default function TermsPage() {
         <div className="terms-hero-inner">
           <div className="terms-badge">Foydalanish shartlari</div>
           <h1 className="terms-title">Qoidalar va <span className="terms-accent">shartlar</span></h1>
-          <p className="terms-desc">Oxirgi yangilangan: 1-yanvar 2024-yil</p>
+          <p className="terms-desc">Oxirgi yangilangan: 19-sentabr 2026-yil</p>
         </div>
       </section>
 
@@ -117,7 +117,7 @@ export default function TermsPage() {
           letter-spacing: -0.03em;
         }
         .terms-accent {
-          background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+          background: linear-gradient(90deg, var(--theme-color), var(--accent-purple));
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
@@ -138,7 +138,7 @@ export default function TermsPage() {
           margin-bottom: 2.5rem;
           padding: 1.5rem 2rem;
           background: rgba(59,130,246,0.06);
-          border-left: 3px solid var(--accent-blue);
+          border-left: 3px solid var(--theme-color);
           border-radius: 0 12px 12px 0;
         }
         .terms-sections {
@@ -196,7 +196,7 @@ export default function TermsPage() {
           line-height: 1.6;
         }
         .terms-link {
-          color: var(--accent-blue);
+          color: var(--theme-color);
           text-decoration: none;
           transition: opacity 0.2s;
         }
@@ -206,7 +206,7 @@ export default function TermsPage() {
           padding: 1rem 1.5rem 0;
         }
         .back-link {
-          color: var(--accent-blue);
+          color: var(--theme-color);
           font-size: 0.95rem;
           transition: opacity 0.2s;
           text-decoration: none;

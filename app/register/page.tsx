@@ -10,6 +10,7 @@ import styles from './register.module.css';
 export default function RegisterPage() {
   const router = useRouter();
   const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -34,7 +35,7 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!name.trim() || !email.trim() || !password || !confirmPassword) {
+    if (!name.trim() || !username.trim() || !email.trim() || !password || !confirmPassword) {
       setError("Iltimos, barcha maydonlarni to'ldiring.");
       return;
     }
@@ -51,14 +52,35 @@ export default function RegisterPage() {
       return;
     }
     setLoading(true);
-    await new Promise(r => setTimeout(r, 1200));
-    localStorage.setItem('user', JSON.stringify({
-      name: name.trim(),
-      email: email.trim(),
-      joinDate: new Date().toISOString()
-    }));
-    window.dispatchEvent(new Event('auth-changed'));
-    router.push('/account');
+    
+    try {
+      const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+      const res = await fetch(`http://${host}:8000/api/auth/register/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim(), username: username.trim(), email: email.trim(), password }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Server xatosi yoki username allaqachon band!');
+      }
+
+      const data = await res.json();
+      
+      localStorage.setItem('name', data.name || data.username);
+      localStorage.setItem('username', data.username);
+      localStorage.setItem('email', data.email || '');
+      localStorage.setItem('join_date', new Date().toLocaleDateString('uz-UZ', {
+        year: 'numeric', month: 'long', day: 'numeric'
+      }));
+      window.dispatchEvent(new Event('auth-changed'));
+      router.push('/account');
+    } catch (err: any) {
+      setError(err.message || 'Xatolik yuz berdi');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const strength = passwordStrength();
@@ -95,10 +117,26 @@ export default function RegisterPage() {
                 id="reg-name"
                 type="text"
                 className={styles.input}
-                placeholder="Isminiz Familiyangiz"
+                placeholder="Elshod Rustamov"
                 value={name}
                 onChange={e => setName(e.target.value)}
                 autoComplete="name"
+              />
+            </div>
+          </div>
+
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="reg-username">Username</label>
+            <div className={styles.inputWrapper}>
+              <User size={18} className={styles.inputIcon} />
+              <input
+                id="reg-username"
+                type="text"
+                className={styles.input}
+                placeholder="admin"
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                autoComplete="username"
               />
             </div>
           </div>

@@ -28,6 +28,7 @@ export default function EditBookPage() {
   const router = useRouter();
   const bookId = params?.id as string;
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const txtInputRef = useRef<HTMLInputElement>(null);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -39,7 +40,7 @@ export default function EditBookPage() {
   const [form, setForm] = useState({
     title: '', author: '', category: 'Badiiy', price: '', description: '',
     pages: '', language: "O'zbek tili", publishedYear: new Date().getFullYear().toString(),
-    hasAudio: false, audioUrl: '', imageUrl: '', rating: '0'
+    hasAudio: false, audioUrl: '', imageUrl: '', rating: '0', content: ''
   });
 
   useEffect(() => {
@@ -61,6 +62,7 @@ export default function EditBookPage() {
           audioUrl: b.audioUrl || '',
           imageUrl: b.image || b.imageUrl || '',
           rating: String(b.rating || '0'),
+          content: b.content || '',
         });
         setPreviewUrl(b.image || b.imageUrl || '');
       }
@@ -145,6 +147,7 @@ export default function EditBookPage() {
       publishedYear: Number(form.publishedYear),
       rating: Number(form.rating) || 0,
       image: form.imageUrl || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop',
+      content: form.content || '',
     };
     if (existingIdx >= 0) {
       stored[existingIdx] = updated;
@@ -269,6 +272,62 @@ export default function EditBookPage() {
               value={form.description}
               onChange={e => set('description', e.target.value)}
             />
+          </div>
+
+          {/* Book content */}
+          <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: '16px', padding: '1.5rem', backdropFilter: 'blur(8px)' }}>
+            <h3 style={{ fontWeight: 700, marginBottom: '4px', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <BookOpen size={18} style={{ color: 'var(--accent-blue)' }} />
+              Kitob matni (o&apos;qish uchun)
+            </h3>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+              O&apos;quvchilar o&apos;qishi uchun kitob matnini kiriting. Boblarni ajratish uchun <code style={{ background: 'rgba(79,142,247,0.1)', padding: '1px 6px', borderRadius: '4px', color: 'var(--accent-blue)' }}>--- Bob nomi ---</code> ishlating.
+            </p>
+            <textarea
+              style={{ ...inputStyle, minHeight: '300px', resize: 'vertical', fontFamily: 'monospace', fontSize: '0.85rem', lineHeight: '1.7' }}
+              placeholder={`--- 1-Bob: Muqaddima ---
+Bu yerda matn...`}
+              value={form.content}
+              onChange={e => set('content', e.target.value)}
+            />
+            {form.content && (
+              <p style={{ fontSize: '0.78rem', color: '#10b981', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                📖 {form.content.split('\n').filter((l: string) => l.trim().match(/^---.*---$/)).length || 1} ta bob · {form.content.length.toLocaleString()} belgi
+              </p>
+            )}
+            {/* TXT fayl yuklash */}
+            <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <input
+                ref={txtInputRef}
+                type="file"
+                accept=".txt,text/plain"
+                style={{ display: 'none' }}
+                onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = ev => set('content', (ev.target?.result as string) || '');
+                  reader.readAsText(file, 'UTF-8');
+                  if (txtInputRef.current) txtInputRef.current.value = '';
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => txtInputRef.current?.click()}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '6px',
+                  padding: '8px 14px', background: 'rgba(79,142,247,0.1)',
+                  border: '1px dashed rgba(79,142,247,0.4)', borderRadius: '8px',
+                  color: 'var(--accent-blue)', fontSize: '0.82rem', fontWeight: 600,
+                  cursor: 'pointer', fontFamily: 'inherit'
+                }}
+              >
+                <Upload size={14} /> .txt fayl yuklash
+              </button>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                yoki yuqoridagi maydonga bevosita matn paste qiling
+              </span>
+            </div>
           </div>
 
           {/* Cover Image */}

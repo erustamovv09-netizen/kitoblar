@@ -74,8 +74,9 @@
 }
 
 .searchInput:focus {
-  border-color: var(--search-border);
-  background-color: #232733;
+  border-color: var(--hover-color, var(--accent-blue));
+  background-color: var(--card-bg);
+  box-shadow: 0 0 0 2px var(--hover-bg, rgba(79, 142, 247, 0.15));
 }
 
 .searchInput::placeholder {
@@ -97,7 +98,7 @@
 }
 
 .navLink:hover {
-  color: var(--text-primary);
+  color: var(--hover-color, var(--text-primary));
 }
 
 .actions {
@@ -121,8 +122,8 @@
 }
 
 .actionBtn:hover {
-  color: var(--text-primary);
-  background-color: var(--search-bg);
+  color: var(--hover-color, var(--text-primary));
+  background-color: var(--hover-bg, var(--search-bg));
 }
 
 .favBadge {
@@ -216,7 +217,7 @@
 }
 
 .mobileLink:hover {
-  color: var(--accent-blue);
+  color: var(--hover-color, var(--accent-blue));
 }
 
 .mobileActions {
@@ -246,7 +247,7 @@
 }
 
 .mobileActionLink:hover {
-  color: var(--text-primary);
+  color: var(--hover-color, var(--text-primary));
 }
 
 /* ── Responsive ─────────────────────────────────────── */
@@ -328,4 +329,57 @@
   font-size: 0.8rem;
   font-weight: 600;
   text-decoration: none;
+}
+
+.categoryDropdownContainer {
+  position: relative;
+  display: inline-block;
+}
+
+.categoryDropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 10px;
+  background-color: var(--nav-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  min-width: 200px;
+  padding: 0.5rem 0;
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-10px);
+  transition: all 0.2s ease;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+  z-index: 100;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.categoryDropdownContainer:hover .categoryDropdown {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.dropdownLink {
+  color: var(--text-secondary);
+  text-decoration: none;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.dropdownLink:hover {
+  background-color: var(--search-bg);
+  color: var(--accent-blue);
+}
+
+.mobileCategoryList {
+  display: flex;
+  flex-direction: column;
+  padding-left: 1rem;
+  margin-bottom: 0.5rem;
 }

@@ -30,7 +30,7 @@ export default function ContactPage() {
             {/* Email */}
             <div className="contact-card">
               <div className="contact-card-icon">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent-blue)' }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--theme-color)' }}>
                   <rect x="2" y="4" width="20" height="16" rx="3" />
                   <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
                 </svg>
@@ -109,7 +109,7 @@ export default function ContactPage() {
         .contact-badge {
           display: inline-block;
           background: rgba(59, 130, 246, 0.15);
-          color: var(--accent-blue);
+          color: var(--theme-color);
           border: 1px solid rgba(59, 130, 246, 0.3);
           border-radius: 999px;
           padding: 0.35rem 1rem;
@@ -128,7 +128,7 @@ export default function ContactPage() {
           letter-spacing: -0.03em;
         }
         .contact-accent {
-          background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+          background: linear-gradient(90deg, var(--theme-color), var(--accent-purple));
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
@@ -189,7 +189,7 @@ export default function ContactPage() {
           text-decoration: none;
           transition: color 0.2s;
         }
-        .contact-card-value:hover { color: var(--accent-blue); }
+        .contact-card-value:hover { color: var(--theme-color); }
         .contact-form-wrap {
           background: var(--card-bg);
           border: 1px solid var(--card-border);
@@ -228,7 +228,7 @@ export default function ContactPage() {
           outline: none;
           resize: none;
         }
-        .form-input:focus, .form-textarea:focus { border-color: var(--accent-blue); }
+        .form-input:focus, .form-textarea:focus { border-color: var(--theme-color); }
         .form-input::placeholder, .form-textarea::placeholder {
           color: var(--text-secondary);
           opacity: 0.6;
@@ -237,7 +237,7 @@ export default function ContactPage() {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+          background: var(--theme-color);
           color: #fff;
           font-weight: 600;
           font-size: 1rem;
@@ -252,7 +252,7 @@ export default function ContactPage() {
         .form-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
         .contact-back { text-align: center; padding: 1rem 1.5rem 0; }
         .back-link {
-          color: var(--accent-blue);
+          color: var(--theme-color);
           font-size: 0.95rem;
           transition: opacity 0.2s;
           text-decoration: none;

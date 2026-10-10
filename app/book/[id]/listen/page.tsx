@@ -3,15 +3,23 @@
 import React, { useEffect, useRef, useState, use } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { notFound } from 'next/navigation';
+import { notFound, useRouter } from 'next/navigation';
 import { ArrowLeft, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX } from 'lucide-react';
 import { api, Book } from '@/app/lib/api';
 import styles from './listen.module.css';
 
 export default function ListenPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
+  const router = useRouter();
   const [book, setBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const isLogged = localStorage.getItem('username');
+    if (!isLogged) {
+      router.push('/login');
+    }
+  }, [router]);
 
   // Audio state
   const audioRef = useRef<HTMLAudioElement>(null);

@@ -9,44 +9,50 @@ import styles from './page.module.css';
 import { useParams } from 'next/navigation';
 import { motion, Variants } from 'framer-motion';
 
-// Kategoriya slug → chiroyli nom xaritasi
+// Slug → Ko'rsatiladigan nom (navbar bilan to'liq mos)
 const categoryNames: Record<string, string> = {
   'badiiy': 'Badiiy asarlar',
-  'biznes': 'Biznes va Rivojlanish',
+  'biznes': 'Biznes',
   'ilmiy': 'Ilmiy kitoblar',
   'tarixiy': 'Tarixiy kitoblar',
   'detektiv': 'Detektiv kitoblar',
+  'bolalar-adabiyoti': 'Bolalar adabiyoti',
+  'jahon-adabiyoti': 'Jahon adabiyoti',
+  'shaxsiy-rivojlanish': 'Shaxsiy rivojlanish',
+  'moliya': 'Moliya',
+  'falsafa': 'Falsafa',
+  'psixologiya': 'Psixologiya',
+  // Qisqa sluglar uchun qo'llab-quvvatlash
   'bolalar': 'Bolalar adabiyoti',
   'jahon': 'Jahon adabiyoti',
   'shaxsiy': 'Shaxsiy rivojlanish',
-  'moliya': 'Moliya va Iqtisodiyot',
-  'falsafa': 'Falsafa',
-  'psixologiya': 'Psixologiya',
 };
 
-// Kategoriya slug bo'yicha kitoblar filtri
+// Kitob kategoriya nomi va slug mos kelishini tekshiradi
 function matchesSlug(bookCat: string, slug: string): boolean {
-  const cat = bookCat.toLowerCase();
-  if (slug === 'badiiy') return cat.includes('badiiy');
-  if (slug === 'biznes') return cat.includes('biznes') || cat.includes('rivojlanish') || cat.includes('shaxsiy');
-  if (slug === 'ilmiy') return cat.includes('ilmiy') || cat.includes('fan');
-  if (slug === 'tarixiy') return cat.includes('tarix');
-  if (slug === 'detektiv') return cat.includes('detektiv');
-  if (slug === 'bolalar') return cat.includes('bolalar');
-  if (slug === 'jahon') return cat.includes('jahon');
-  if (slug === 'shaxsiy') return cat.includes('shaxsiy');
-  if (slug === 'moliya') return cat.includes('moliya') || cat.includes('iqtisod');
-  if (slug === 'falsafa') return cat.includes('falsafa');
-  if (slug === 'psixologiya') return cat.includes('psixologiya');
-  return false;
+  const cat = bookCat.toLowerCase().trim();
+  switch (slug) {
+    case 'badiiy':             return cat.includes('badiiy');
+    case 'biznes':             return cat.includes('biznes');
+    case 'ilmiy':              return cat.includes('ilmiy') || cat.includes('fan');
+    case 'tarixiy':            return cat.includes('tarix');
+    case 'detektiv':           return cat.includes('detektiv');
+    case 'bolalar-adabiyoti':
+    case 'bolalar':            return cat.includes('bolalar');
+    case 'jahon-adabiyoti':
+    case 'jahon':              return cat.includes('jahon');
+    case 'shaxsiy-rivojlanish':
+    case 'shaxsiy':            return cat.includes('shaxsiy') || cat.includes('rivojlanish');
+    case 'moliya':             return cat.includes('moliya') || cat.includes('iqtisod');
+    case 'falsafa':            return cat.includes('falsafa');
+    case 'psixologiya':        return cat.includes('psixologiya');
+    default:                   return cat.includes(slug.split('-')[0]);
+  }
 }
 
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.1 }
-  }
+  visible: { opacity: 1, transition: { staggerChildren: 0.1 } }
 };
 
 const itemVariants: Variants = {
@@ -66,6 +72,41 @@ export default function CategoryPage() {
     if (!slug) return;
     async function load() {
       setLoading(true);
+      // Backend bilan ulangan bo'lsa, slug bo'yicha filtrlash
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
+      try {
+        const res = await fetch(`${API_BASE}/books/?category=${slug}`, {
+          signal: AbortSignal.timeout(3000)
+        });
+        if (res.ok) {
+          const raw = await res.json();
+          if (Array.isArray(raw) && raw.length > 0) {
+            // Backend natijasini ishlatish
+            const mapped = raw.map((b: any) => ({
+              id: String(b.id),
+              title: b.title,
+              author: b.author,
+              price: b.price && !String(b.price).includes("so'm")
+                ? `${Number(b.price).toLocaleString('uz-UZ')} so'm`
+                : b.price || "0 so'm",
+              rating: Number(b.rating) || 0,
+              image: b.cover_image || b.image || '',
+              category: b.category_name || b.category || '',
+              description: b.description || '',
+              pages: Number(b.pages) || 0,
+              language: b.language || "O'zbek tili",
+              publishedYear: Number(b.year) || Number(b.publishedYear) || 2024,
+              hasAudio: !!b.hasAudio,
+              audioUrl: b.audioUrl || '',
+            } as Book));
+            setBooks(mapped);
+            setLoading(false);
+            return;
+          }
+        }
+      } catch { /* Backend offline — pastdagi fallback ishlatiladi */ }
+
+      // Fallback: barcha kitoblar olib, client-side filtrlash
       const data = await api.getBooks();
       const filtered = (data || []).filter(b => matchesSlug(b.category, slug));
       setBooks(filtered);

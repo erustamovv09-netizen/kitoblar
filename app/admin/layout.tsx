@@ -1,17 +1,19 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { BookOpen, LogOut, LayoutDashboard, Library, PlusCircle, BarChart3, ChevronRight } from 'lucide-react';
+import { BookOpen, LogOut, LayoutDashboard, Library, PlusCircle, BarChart2, Users, ChevronRight } from 'lucide-react';
 
 const ADMIN_PASSWORD = 'elshod123';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [authed, setAuthed] = useState(false);
   const [pass, setPass] = useState('');
   const [error, setError] = useState('');
+  const [showMobileDashMenu, setShowMobileDashMenu] = useState(false);
 
   useEffect(() => {
     const ok = sessionStorage.getItem('admin_auth');
@@ -25,7 +27,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       setAuthed(true);
       setError('');
     } else {
-      setError("Parol noto'g'ri. Maslahat: admin123");
+      setError("Parol noto'g'ri.");
     }
   };
 
@@ -47,7 +49,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           borderRadius: '20px', padding: '2.5rem', boxShadow: 'var(--shadow-elevated)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '2rem', justifyContent: 'center' }}>
-            <BarChart3 size={28} style={{ color: 'var(--accent-purple)' }} />
+            <BarChart2 size={28} style={{ color: 'var(--accent-purple)' }} />
             <span style={{ fontSize: '1.4rem', fontWeight: 800 }}>Admin Panel</span>
           </div>
           <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -98,25 +100,36 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             { href: '/admin', icon: <LayoutDashboard size={18} />, label: 'Dashboard' },
             { href: '/admin/books', icon: <Library size={18} />, label: 'Kitoblar' },
             { href: '/admin/books/add', icon: <PlusCircle size={18} />, label: "Kitob qo'shish" },
-          ].map(item => (
-            <Link key={item.href} href={item.href} style={{
-              display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px',
-              borderRadius: '10px', color: 'var(--text-secondary)', fontSize: '0.88rem', fontWeight: 600,
-              transition: 'all 0.2s', textDecoration: 'none'
-            }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLElement).style.background = 'var(--search-bg)';
-              (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)';
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLElement).style.background = 'transparent';
-              (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)';
-            }}
-            >
-              {item.icon}
-              <span>{item.label}</span>
-            </Link>
-          ))}
+            { href: '/admin/analytics', icon: <BarChart2 size={18} />, label: 'Analitika' },
+            { href: '/admin/users', icon: <Users size={18} />, label: 'Foydalanuvchilar' },
+          ].map(item => {
+            const isActive = pathname === item.href;
+            return (
+              <Link key={item.href} href={item.href} style={{
+                display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px',
+                borderRadius: '10px', fontSize: '0.88rem', fontWeight: 600,
+                color: isActive ? 'var(--theme-color, var(--accent-blue))' : 'var(--text-secondary)',
+                background: isActive ? 'var(--theme-hover, rgba(59, 130, 246, 0.1))' : 'transparent',
+                transition: 'all 0.2s', textDecoration: 'none'
+              }}
+                onMouseEnter={e => {
+                  if (!isActive) {
+                    (e.currentTarget as HTMLElement).style.background = 'var(--search-bg)';
+                    (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)';
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!isActive) {
+                    (e.currentTarget as HTMLElement).style.background = 'transparent';
+                    (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)';
+                  }
+                }}
+              >
+                {item.icon}
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
 
           <div style={{ marginTop: 'auto' }}>
             <Link href="/" style={{
@@ -153,21 +166,58 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         display: 'flex', alignItems: 'center', justifyContent: 'space-around',
         padding: '0.5rem 0 calc(0.5rem + env(safe-area-inset-bottom))'
       }}>
+        <div style={{ position: 'relative' }}>
+          {showMobileDashMenu && (
+            <div style={{
+              position: 'absolute', bottom: '100%', left: '-10px',
+              marginBottom: '10px', background: 'var(--card-bg)', border: '1px solid var(--card-border)',
+              borderRadius: '12px', padding: '0.4rem', display: 'flex', flexDirection: 'column', gap: '4px',
+              boxShadow: '0 10px 25px rgba(0,0,0,0.2)', minWidth: '130px'
+            }}>
+              <Link href="/admin" onClick={() => setShowMobileDashMenu(false)} style={{
+                display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px',
+                color: 'var(--text-primary)', textDecoration: 'none', fontSize: '0.75rem', fontWeight: 600,
+                borderRadius: '8px', background: 'var(--search-bg)'
+              }}>
+                <BarChart2 size={15} /> Analitika
+              </Link>
+              <Link href="/admin/users" onClick={() => setShowMobileDashMenu(false)} style={{
+                display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px',
+                color: 'var(--text-primary)', textDecoration: 'none', fontSize: '0.75rem', fontWeight: 600,
+                borderRadius: '8px', background: 'var(--search-bg)'
+              }}>
+                <Users size={15} /> Foydalanuvchilar
+              </Link>
+            </div>
+          )}
+          <button onClick={() => setShowMobileDashMenu(!showMobileDashMenu)} style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px',
+            color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: '0.65rem', fontWeight: 600, padding: '4px 8px', minWidth: '56px'
+          }}>
+            <LayoutDashboard size={22} />
+            <span>Dashboard</span>
+          </button>
+        </div>
         {[
-          { href: '/admin', icon: <LayoutDashboard size={22} />, label: 'Dashboard' },
           { href: '/admin/books', icon: <Library size={22} />, label: 'Kitoblar' },
           { href: '/admin/books/add', icon: <PlusCircle size={22} />, label: "Qo'shish" },
           { href: '/', icon: <ChevronRight size={22} style={{ transform: 'rotate(180deg)' }} />, label: 'Sayt' },
-        ].map(item => (
-          <Link key={item.href} href={item.href} style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px',
-            color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '0.65rem', fontWeight: 600,
-            padding: '4px 8px', borderRadius: '10px', minWidth: '56px'
-          }}>
-            {item.icon}
-            <span>{item.label}</span>
-          </Link>
-        ))}
+        ].map(item => {
+          const isActive = pathname === item.href && item.href !== '/';
+          return (
+            <Link key={item.href} href={item.href} onClick={() => setShowMobileDashMenu(false)} style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px',
+              color: isActive ? 'var(--theme-color, var(--accent-blue))' : 'var(--text-secondary)', 
+              background: isActive ? 'var(--theme-hover, rgba(59, 130, 246, 0.1))' : 'transparent',
+              textDecoration: 'none', fontSize: '0.65rem', fontWeight: 600,
+              padding: '6px 12px', borderRadius: '12px', minWidth: '60px'
+            }}>
+              {item.icon}
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
         <button onClick={handleLogout} style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px',
           color: '#f87171', background: 'none', border: 'none', cursor: 'pointer',

@@ -1,6 +1,7 @@
 import booksDB from './books';
 import { mockDB, Review, ReadingProgress, Activity } from './db';
 
+
 // Backend API URL can be configured using environment variables
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api";
 
@@ -49,13 +50,9 @@ async function fetchWithFallback<T>(
     }
 
     const data = await response.json();
-    console.log(`[API SUCCESS] Loaded from backend: ${endpoint}`);
     return data as T;
   } catch (error: any) {
     clearTimeout(id);
-    console.warn(
-      `[API FALLBACK] Failed to load from backend (${url}). Using local mock storage. Error: ${error.message}`
-    );
     return fallbackValue;
   }
 }
@@ -78,8 +75,10 @@ function mapDjangoBookToBook(djangoBook: any): Book {
     publishedYear: Number(djangoBook.year) || Number(djangoBook.publishedYear) || 2024,
     hasAudio: djangoBook.hasAudio !== undefined ? !!djangoBook.hasAudio : String(djangoBook.id) === '1',
     audioUrl: djangoBook.audioUrl || (String(djangoBook.id) === '1' ? 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' : ''),
-  };
+    content: djangoBook.content || '',
+  } as any;
 }
+
 
 // Helper: get admin-edited version of a book from localStorage (client-side only)
 function getLocalAdminBooks(): Record<string, any> {
@@ -115,14 +114,43 @@ function getDeletedBookIds(): Set<string> {
 export const api = {
   // ── Books APIs ────────────────────────────────────────────────────────
   async getBooks(): Promise<Book[]> {
-    const raw = await fetchWithFallback<any[]>('/books/', { method: 'GET' }, booksDB);
-    const books = Array.isArray(raw) ? raw.map(mapDjangoBookToBook) : booksDB.map(mapDjangoBookToBook);
+    // ── 1. Try backend ────────────────────────────────────────────
+    let fromBackend = false;
+    let raw: any[] = [];
+    try {
+      const res = await fetch(`${API_BASE_URL}/books/`, {
+        signal: AbortSignal.timeout(2000),
+      });
+      if (res.ok) {
+        raw = await res.json();
+        fromBackend = true;
+      }
+    } catch { }
+
+    // ── 2. If backend is offline, use mock booksDB ────────────────
+    if (!fromBackend) raw = booksDB as any[];
+
+    const books = Array.isArray(raw)
+      ? raw.map(mapDjangoBookToBook)
+      : (booksDB as any[]).map(mapDjangoBookToBook);
+
     // Filter out locally-deleted books
     const deleted = getDeletedBookIds();
     const filtered = deleted.size > 0 ? books.filter(b => !deleted.has(String(b.id))) : books;
-    // Merge admin-edited local overrides (image, title, price, etc.)
+
+    // ── 3a. Backend available → only backend books (+ local edits to existing) ──
+    if (fromBackend) {
+      const localEdits = getLocalAdminBooks();
+      if (Object.keys(localEdits).length === 0) return filtered;
+      return filtered.map(book => {
+        const edit = localEdits[book.id];
+        if (!edit) return book;
+        return { ...book, ...edit, id: book.id };
+      });
+    }
+
+    // ── 3b. Backend offline → booksDB + localStorage-only books ──────────────
     const localEdits = getLocalAdminBooks();
-    // Also include locally-created books (local_ prefix IDs not in backend)
     const backendIds = new Set(filtered.map(b => b.id));
     const localOnlyBooks = Object.values(localEdits)
       .filter((e: any) => !backendIds.has(String(e.id)) && !deleted.has(String(e.id)))
@@ -141,6 +169,7 @@ export const api = {
         hasAudio: !!e.hasAudio,
         audioUrl: e.audioUrl || '',
       } as Book));
+
     if (Object.keys(localEdits).length === 0) return [...filtered, ...localOnlyBooks];
     return [
       ...filtered.map(book => {
@@ -152,7 +181,34 @@ export const api = {
     ];
   },
 
+
   async getBook(id: string): Promise<Book | null> {
+    // First check locally-created admin books (Date.now() IDs)
+    if (typeof window !== 'undefined') {
+      try {
+        const adminBooks: any[] = JSON.parse(localStorage.getItem('admin_books') || '[]');
+        const localBook = adminBooks.find((b: any) => String(b.id) === String(id));
+        if (localBook) {
+          return {
+            id: String(localBook.id),
+            title: localBook.title || '',
+            author: localBook.author || '',
+            price: localBook.price || "0 so'm",
+            rating: Number(localBook.rating) || 0,
+            image: localBook.image || localBook.imageUrl || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop',
+            category: localBook.category || 'Badiiy',
+            description: localBook.description || '',
+            pages: Number(localBook.pages) || 0,
+            language: localBook.language || "O'zbek tili",
+            publishedYear: Number(localBook.publishedYear) || 2024,
+            hasAudio: !!localBook.hasAudio,
+            audioUrl: localBook.audioUrl || '',
+            content: localBook.content || '',
+          } as any;
+        }
+      } catch { }
+    }
+
     const localBook = booksDB.find((b) => b.id === id) || null;
     const raw = await fetchWithFallback<any | null>(`/books/${id}/`, { method: 'GET' }, localBook);
     const book = raw ? mapDjangoBookToBook(raw) : null;
@@ -174,6 +230,7 @@ export const api = {
         rating: edit.rating != null ? Number(edit.rating) : book.rating,
         hasAudio: edit.hasAudio != null ? !!edit.hasAudio : book.hasAudio,
         audioUrl: edit.audioUrl ?? book.audioUrl,
+        content: edit.content || (book as any).content || '',
         // Most important: use uploaded/edited image
         image: edit.image || edit.imageUrl || book.image,
       };
@@ -195,7 +252,7 @@ export const api = {
       try {
         const stored: any[] = JSON.parse(localStorage.getItem('admin_books') || '[]');
         localStorage.setItem('admin_books', JSON.stringify(stored.filter(b => String(b.id) !== String(id))));
-      } catch {}
+      } catch { }
       // Track deleted backend IDs
       try {
         const deleted: string[] = JSON.parse(localStorage.getItem('deleted_book_ids') || '[]');
@@ -203,7 +260,7 @@ export const api = {
           deleted.push(String(id));
           localStorage.setItem('deleted_book_ids', JSON.stringify(deleted));
         }
-      } catch {}
+      } catch { }
     }
     // Try backend DELETE
     try {
@@ -215,7 +272,7 @@ export const api = {
       if (response.ok || response.status === 204) {
         return { success: true, fromBackend: true };
       }
-    } catch {}
+    } catch { }
     // Backend failed — local deletion only
     return { success: true, fromBackend: false };
   },
@@ -245,7 +302,7 @@ export const api = {
         const book = await response.json();
         return { success: true, fromBackend: true, book: mapDjangoBookToBook(book) };
       }
-    } catch {}
+    } catch { }
     // Backend failed — save locally
     if (typeof window !== 'undefined') {
       try {
@@ -260,7 +317,7 @@ export const api = {
         stored.unshift(localBook);
         localStorage.setItem('admin_books', JSON.stringify(stored));
         return { success: true, fromBackend: false, book: localBook as Book };
-      } catch {}
+      } catch { }
     }
     return { success: false, fromBackend: false };
   },
@@ -287,7 +344,7 @@ export const api = {
       mockDB.logEvent(`"${review.userName}" tomonidan kitobga ${review.rating} ballik sharh qoldirildi`, 'user');
       return data as Review;
     } catch (error) {
-      console.warn(`[API FALLBACK] Failed to POST review to backend. Using local mock storage.`, error);
+      // fallback to mock storage without logging warning
       return mockDB.addReview(bookId, review);
     }
   },
@@ -295,12 +352,22 @@ export const api = {
   // ── Reading Progress APIs ─────────────────────────────────────────────
   async getReadingProgress(bookId: string): Promise<ReadingProgress | null> {
     const localProgress = await mockDB.getReadingProgress(bookId);
-    return fetchWithFallback<ReadingProgress | null>(`/books/${bookId}/progress/`, { method: 'GET' }, localProgress);
+    let userId = 'anonymous';
+    if (typeof window !== 'undefined') userId = localStorage.getItem('username') || 'anonymous';
+    return fetchWithFallback<ReadingProgress | null>(`/books/${bookId}/progress/?userId=${userId}`, { method: 'GET' }, localProgress);
   },
 
   async saveReadingProgress(bookId: string, percent: number, chapter: string, page: number): Promise<void> {
     const url = `${API_BASE_URL}/books/${bookId}/progress/`;
-    const progressBody = { percent, chapter, page };
+    let userId = 'anonymous';
+    if (typeof window !== 'undefined') userId = localStorage.getItem('username') || 'anonymous';
+
+    const progressBody = {
+      progressPercent: percent,
+      chapter: chapter,
+      chapterIndex: page,
+      userId: userId
+    };
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -308,9 +375,8 @@ export const api = {
         body: JSON.stringify(progressBody),
       });
       if (!response.ok) throw new Error(`Status ${response.status}`);
-      console.log(`[API SUCCESS] Saved reading progress on backend for book ${bookId}`);
     } catch (error) {
-      console.warn(`[API FALLBACK] Failed to save progress on backend. Using local mock storage.`, error);
+      // Ignore error, fallback to mock storage
       await mockDB.saveReadingProgress(bookId, percent, chapter, page);
     }
   },

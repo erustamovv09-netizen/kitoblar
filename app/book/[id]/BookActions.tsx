@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Heart, Share2, BookOpen, Headphones, Package } from 'lucide-react';
+import { Heart, Share2, BookOpen, Headphones, Package, Star } from 'lucide-react';
 import styles from './page.module.css';
 
 type Favorite = { id: string; title: string; author: string; price: string; rating: number; image: string; category: string };
@@ -134,14 +134,17 @@ export default function BookActions({ book, recommended }: { book: Book; recomme
                 <button onClick={handleBuy} className={styles.primaryBtn} style={{ backgroundColor: 'transparent', color: 'var(--text-primary)', border: '1px solid var(--search-border)', display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
                     Sotib olish
                 </button>
-                <button className={styles.iconBtn} onClick={toggleFavorite} aria-label="Sevimlilar" title="Sevimlilarga qo'shish" style={{ color: isFav ? '#ef4444' : 'inherit', borderColor: isFav ? '#ef4444' : 'inherit' }}>
-                    <Heart size={18} />
-                </button>
-                <button className={styles.iconBtn} onClick={shareBook} aria-label="Ulashish" title="Do'stlar bilan ulashish">
-                    <Share2 size={18} />
-                </button>
+                <div className={styles.iconBtnsRow}>
+                    <button className={styles.iconBtn} onClick={toggleFavorite} aria-label="Sevimlilar" title="Sevimlilarga qo'shish" style={{ color: isFav ? '#ef4444' : 'inherit', borderColor: isFav ? '#ef4444' : 'inherit' }}>
+                        <Heart size={18} />
+                    </button>
+                    <button className={styles.iconBtn} onClick={shareBook} aria-label="Ulashish" title="Do'stlar bilan ulashish">
+                        <Share2 size={18} />
+                    </button>
+                </div>
             </div>
-            
+
+
             <div style={{ marginTop: '1rem' }}>
                 <button onClick={handleOrderPhysical} className={styles.primaryBtn} style={{ backgroundColor: 'transparent', width: '100%', maxWidth: 'none', color: 'var(--text-secondary)', border: '1px dashed var(--search-border)', display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
                     <Package size={18} /> Qog'oz formatda buyurtma qilish

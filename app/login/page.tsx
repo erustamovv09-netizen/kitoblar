@@ -4,12 +4,13 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { BookOpen, Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from 'lucide-react';
+import { BookOpen, Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle, User } from 'lucide-react';
 import { motion } from 'framer-motion';
 import styles from './login.module.css';
 
 export default function LoginPage() {
   const router = useRouter();
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
@@ -19,12 +20,8 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!email.trim() || !password.trim()) {
+    if (!username.trim() || !email.trim() || !password.trim()) {
       setError("Iltimos, barcha maydonlarni to'ldiring.");
-      return;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError("Email manzil noto'g'ri formatda.");
       return;
     }
     if (password.length < 6) {
@@ -32,12 +29,36 @@ export default function LoginPage() {
       return;
     }
     setLoading(true);
-    // Simulate API call
-    await new Promise(r => setTimeout(r, 1000));
-    // Store user in localStorage (mock auth)
-    localStorage.setItem('user', JSON.stringify({ email, name: email.split('@')[0], joinDate: new Date().toISOString() }));
-    window.dispatchEvent(new Event('auth-changed'));
-    router.push('/account');
+    try {
+      const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+      const res = await fetch(`http://${host}:8000/api/auth/login/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username.trim(), password }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Login yoki parol xato!');
+      }
+
+      const data = await res.json();
+      
+      localStorage.setItem('name', data.name || data.username);
+      localStorage.setItem('username', data.username);
+      localStorage.setItem('email', data.email || email);
+      if (!localStorage.getItem('join_date')) {
+        localStorage.setItem('join_date', new Date().toLocaleDateString('uz-UZ', {
+          year: 'numeric', month: 'long', day: 'numeric'
+        }));
+      }
+      window.dispatchEvent(new Event('auth-changed'));
+      router.push('/account');
+    } catch (err: any) {
+      setError(err.message || 'Xatolik yuz berdi');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -64,6 +85,22 @@ export default function LoginPage() {
         </div>
 
         <form className={styles.form} onSubmit={handleSubmit}>
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="login-username">Username</label>
+            <div className={styles.inputWrapper}>
+              <User size={18} className={styles.inputIcon} />
+              <input
+                id="login-username"
+                type="text"
+                className={styles.input}
+                placeholder="admin"
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                autoComplete="username"
+              />
+            </div>
+          </div>
+
           <div className={styles.field}>
             <label className={styles.label} htmlFor="login-email">Email</label>
             <div className={styles.inputWrapper}>

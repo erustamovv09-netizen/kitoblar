@@ -18,6 +18,7 @@ import {
   AlertCircle,
   Clock,
   Sparkles,
+  BarChart2,
   Bookmark,
   Check,
   Flame,
@@ -96,7 +97,7 @@ export default function AccountPage() {
 
     // Load data from LocalStorage on mount
     useEffect(() => {
-        const storedName = localStorage.getItem('username');
+        const storedName = localStorage.getItem('name') || localStorage.getItem('username');
         const storedEmail = localStorage.getItem('email');
         const storedBio = localStorage.getItem('user_bio');
         const rawFav = localStorage.getItem('favorites');
@@ -239,6 +240,7 @@ export default function AccountPage() {
     function changeAccent(newAccent: 'blue' | 'purple' | 'emerald' | 'amber') {
         setAccent(newAccent);
         localStorage.setItem('account_accent', newAccent);
+        window.dispatchEvent(new Event('auth-changed'));
         logEvent(`Rangli mavzu o'zgartirildi (${newAccent})`, 'user');
         setSuccessMessage('Mavzu rangi yangilandi');
         setTimeout(() => setSuccessMessage(''), 2000);
@@ -367,6 +369,7 @@ export default function AccountPage() {
 
     function logout() {
         localStorage.removeItem('username');
+        localStorage.removeItem('name');
         localStorage.removeItem('email');
         localStorage.removeItem('user_bio');
         localStorage.removeItem('account_accent');
@@ -475,58 +478,22 @@ export default function AccountPage() {
                         <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Profilga kirish</h1>
                         <p className={styles.authSubtitle}>Kitoblarni sevimlilarga qo'shish va sozlamalarni saqlash uchun profilingizni yarating.</p>
                         
-                        <form className={styles.form} onSubmit={handleSubmit}>
-                            <div className={styles.field}>
-                                <label className={styles.fieldTitle}>Ism</label>
-                                <div className={styles.inputWrapper}>
-                                    <User size={18} className={styles.inputIcon} />
-                                    <input 
-                                        ref={nameRef} 
-                                        type="text" 
-                                        value={name} 
-                                        onChange={(e) => setName(e.target.value)} 
-                                        placeholder="Ismingizni kiriting"
-                                        className={styles.inputField}
-                                        required
-                                    />
-                                </div>
-                                {errors.name && (
-                                    <span className={styles.errorText}>
-                                        <AlertCircle size={14} /> {errors.name}
-                                    </span>
-                                )}
-                            </div>
-
-                            <div className={styles.field}>
-                                <label className={styles.fieldTitle}>Email</label>
-                                <div className={styles.inputWrapper}>
-                                    <Mail size={18} className={styles.inputIcon} />
-                                    <input 
-                                        ref={emailRef} 
-                                        value={email} 
-                                        onChange={(e) => setEmail(e.target.value)} 
-                                        type="email" 
-                                        placeholder="example@mail.com"
-                                        className={styles.inputField}
-                                        required
-                                    />
-                                </div>
-                                {errors.email && (
-                                    <span className={styles.errorText}>
-                                        <AlertCircle size={14} /> {errors.email}
-                                    </span>
-                                )}
-                            </div>
-
-                            <button 
-                                type="submit" 
-                                className={`${styles.btn} ${styles.btnPrimary}`} 
-                                disabled={!isValid}
-                                style={{ marginTop: '0.5rem', width: '100%' }}
-                            >
-                                Kirish / Saqlash
-                            </button>
-                        </form>
+                        <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+                            <Link href="/login" style={{ 
+                                display: 'inline-block', 
+                                background: '#3b82f6', 
+                                color: 'white', 
+                                padding: '12px 24px', 
+                                borderRadius: '8px', 
+                                textDecoration: 'none',
+                                fontWeight: 600
+                            }}>
+                                Tizimga Kirish
+                            </Link>
+                            <p style={{ marginTop: '1rem', color: '#94a3b8' }}>
+                                Hisobingiz yo'qmi? <Link href="/register" style={{ color: '#3b82f6', textDecoration: 'underline' }}>Ro'yxatdan o'ting</Link>
+                            </p>
+                        </div>
                     </div>
                 </motion.div>
             ) : (
@@ -896,10 +863,12 @@ export default function AccountPage() {
                                                             <input 
                                                                 ref={emailRef} 
                                                                 value={email} 
-                                                                onChange={(e) => setEmail(e.target.value)} 
                                                                 type="email"
                                                                 placeholder="example@mail.com" 
                                                                 className={styles.inputField}
+                                                                readOnly
+                                                                disabled
+                                                                style={{ opacity: 0.6, cursor: 'not-allowed' }}
                                                             />
                                                         </div>
                                                         {errors.email && <span className={styles.errorText}><AlertCircle size={14} /> {errors.email}</span>}

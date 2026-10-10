@@ -20,9 +20,9 @@ export default function Footer() {
           <h3 className={styles.title}>Bo&apos;limlar</h3>
           <div className={styles.links}>
             <Link href="/" className={styles.link}>Bosh sahifa</Link>
-            <Link href="/category/badiiy" className={styles.link}>Badiiy asarlar</Link>
-            <Link href="/category/biznes" className={styles.link}>Biznes</Link>
-            <Link href="/category/ilmiy" className={styles.link}>Ilmiy kitoblar</Link>
+            <Link href="/search" className={styles.link}>Barcha kitoblar</Link>
+            <Link href="/favorites" className={styles.link}>Sevimlilar</Link>
+            <Link href="/account" className={styles.link}>Shaxsiy kabinet</Link>
           </div>
         </div>
 

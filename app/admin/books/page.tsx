@@ -67,9 +67,9 @@ export default function AdminBooksPage() {
         </div>
         <Link href="/admin/books/add" style={{
           display: 'inline-flex', alignItems: 'center', gap: '6px',
-          padding: '9px 16px', background: 'linear-gradient(135deg, var(--accent-blue), var(--accent-purple))',
+          padding: '9px 16px', background: 'var(--theme-color, var(--accent-blue))',
           borderRadius: '10px', color: '#fff', fontWeight: 700, fontSize: '0.88rem', textDecoration: 'none',
-          boxShadow: '0 4px 15px rgba(79,142,247,0.25)', whiteSpace: 'nowrap'
+          boxShadow: '0 4px 15px var(--theme-hover, rgba(79,142,247,0.25))', whiteSpace: 'nowrap'
         }}>
           <PlusCircle size={17} />
           Qo&apos;shish
@@ -169,7 +169,7 @@ export default function AdminBooksPage() {
           </div>
 
           {/* Mobile Cards — shown only on small screens */}
-          <div className="mobile-cards" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <div className="mobile-cards" style={{ flexDirection: 'column', gap: '0.75rem' }}>
             {filtered.map(book => (
               <div key={book.id} style={{
                 background: 'var(--card-bg)', border: '1px solid var(--card-border)',
@@ -225,9 +225,9 @@ export default function AdminBooksPage() {
         @keyframes spin { to { transform: rotate(360deg); } }
         .desktop-table { display: block; }
         .mobile-cards { display: none; }
-        @media (max-width: 640px) {
-          .desktop-table { display: none; }
-          .mobile-cards { display: flex; }
+        @media (max-width: 768px) {
+          .desktop-table { display: none !important; }
+          .mobile-cards { display: flex !important; }
         }
       `}</style>
     </div>

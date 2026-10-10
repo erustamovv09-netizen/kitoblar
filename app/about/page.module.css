@@ -19,7 +19,7 @@
 .badge {
   display: inline-block;
   background: rgba(59, 130, 246, 0.15);
-  color: var(--accent-blue);
+  color: var(--theme-color);
   border: 1px solid rgba(59, 130, 246, 0.3);
   border-radius: 999px;
   padding: 0.35rem 1rem;
@@ -40,7 +40,7 @@
 }
 
 .accent {
-  background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+  background: linear-gradient(90deg, var(--theme-color), var(--accent-purple));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -55,7 +55,7 @@
 
 .btn {
   display: inline-block;
-  background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+  background: var(--theme-color);
   color: #fff;
   font-weight: 600;
   font-size: 1rem;
@@ -100,7 +100,7 @@
   display: flex;
   justify-content: center;
   margin-bottom: 1rem;
-  color: var(--accent-blue);
+  color: var(--theme-color);
 }
 
 .statValue {
@@ -233,7 +233,7 @@
 }
 
 .backLink {
-  color: var(--accent-blue);
+  color: var(--theme-color);
   font-size: 0.95rem;
   transition: opacity 0.2s;
 }

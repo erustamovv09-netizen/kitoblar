@@ -1,18 +1,19 @@
 "use client";
 
-import React, { useEffect, useState, use } from 'react';
+import React, { useEffect, useState, use, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { 
-  ArrowLeft, 
-  Settings, 
-  ChevronLeft, 
-  ChevronRight, 
-  Check, 
-  BookOpen, 
-  Maximize2, 
+import {
+  ArrowLeft,
+  Settings,
+  ChevronLeft,
+  ChevronRight,
+  Check,
+  BookOpen,
+  Maximize2,
   Minimize2,
-  Menu
+  Menu,
+  X
 } from 'lucide-react';
 import { api, Book } from '../../../lib/api';
 import styles from './page.module.css';
@@ -81,6 +82,7 @@ export default function BookReaderPage({ params }: { params: Promise<{ id: strin
   const [theme, setTheme] = useState<'light' | 'dark' | 'sepia'>('dark');
   const [fontSize, setFontSize] = useState<number>(18);
   const [lineHeight, setLineHeight] = useState<'normal' | 'relaxed' | 'loose'>('relaxed');
+  const [script, setScript] = useState<'latin' | 'cyrillic'>('latin');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
@@ -88,6 +90,50 @@ export default function BookReaderPage({ params }: { params: Promise<{ id: strin
   // Content Navigation State
   const [currentChapter, setCurrentChapter] = useState(0);
   const [loading, setLoading] = useState(true);
+  
+  // Auth Check
+  useEffect(() => {
+    const isLogged = localStorage.getItem('username');
+    if (!isLogged) {
+      router.push('/login');
+    }
+  }, [router]);
+
+  // O'zbek lotin → kiril transliteratsiyasi
+  const toСyrillic = (text: string): string => {
+    const rules: [RegExp, string][] = [
+      // Digraphs (avval)
+      [/SH/g, 'Ш'], [/Sh/g, 'Ш'], [/sh/g, 'ш'],
+      [/CH/g, 'Ч'], [/Ch/g, 'Ч'], [/ch/g, 'ч'],
+      [/O'|O`/g, 'Ў'], [/o'|o`/g, 'ў'],
+      [/G'|G`/g, 'Ғ'], [/g'|g`/g, 'ғ'],
+      [/YO/g, 'Ё'], [/Yo/g, 'Ё'], [/yo/g, 'ё'],
+      [/YA/g, 'Я'], [/Ya/g, 'Я'], [/ya/g, 'я'],
+      [/YU/g, 'Ю'], [/Yu/g, 'Ю'], [/yu/g, 'ю'],
+      [/YE/g, 'Е'], [/Ye/g, 'Е'], [/ye/g, 'е'],
+      [/TS/g, 'Ц'], [/Ts/g, 'Ц'], [/ts/g, 'ц'],
+      // Single chars
+      [/A/g,'А'],[/a/g,'а'],[/B/g,'Б'],[/b/g,'б'],
+      [/D/g,'Д'],[/d/g,'д'],[/E/g,'Э'],[/e/g,'э'],
+      [/F/g,'Ф'],[/f/g,'ф'],[/G/g,'Г'],[/g/g,'г'],
+      [/H/g,'Ҳ'],[/h/g,'ҳ'],[/I/g,'И'],[/i/g,'и'],
+      [/J/g,'Ж'],[/j/g,'ж'],[/K/g,'К'],[/k/g,'к'],
+      [/L/g,'Л'],[/l/g,'л'],[/M/g,'М'],[/m/g,'м'],
+      [/N/g,'Н'],[/n/g,'н'],[/O/g,'О'],[/o/g,'о'],
+      [/P/g,'П'],[/p/g,'п'],[/Q/g,'Қ'],[/q/g,'қ'],
+      [/R/g,'Р'],[/r/g,'р'],[/S/g,'С'],[/s/g,'с'],
+      [/T/g,'Т'],[/t/g,'т'],[/U/g,'У'],[/u/g,'у'],
+      [/V/g,'В'],[/v/g,'в'],[/X/g,'Х'],[/x/g,'х'],
+      [/Y/g,'Й'],[/y/g,'й'],[/Z/g,'З'],[/z/g,'з'],
+      [/'/g,'ъ'],[/`/g,'ъ'],
+    ];
+    let result = text;
+    for (const [from, to] of rules) result = result.replace(from, to);
+    return result;
+  };
+
+  const applyScript = (text: string) =>
+    script === 'cyrillic' ? toСyrillic(text) : text;
 
   // Load book from API
   useEffect(() => {
@@ -98,7 +144,69 @@ export default function BookReaderPage({ params }: { params: Promise<{ id: strin
     loadBook();
   }, [bookId]);
 
-  const chapters = bookChapters[bookId] || generateChapters(book?.title || 'Kitob');
+  // Kitob matnini boblarga bo'lish
+  const chapters = useMemo(() => {
+    const backendContent = (book as any)?.content as string | undefined;
+
+    // Backend'da matn bor bo'lsa — uni boblarga bo'lamiz
+    if (backendContent && backendContent.trim()) {
+      // Qator-qator o'qib, "--- Bob nomi ---" qatorlarini bob ajratgich sifatida ishlatamiz
+      const lines = backendContent.split('\n');
+      const parsed: { title: string; content: string }[] = [];
+      let currentTitle: string | null = null;
+      let currentLines: string[] = [];
+
+      for (const line of lines) {
+        // Qator aynan "--- ... ---" formatida bo'lsa — yangi bob boshlanadi
+        const match = line.trim().match(/^---\s*(.+?)\s*---$/);
+        if (match) {
+          // Oldingi bobni saqlash
+          if (currentTitle !== null) {
+            parsed.push({ title: currentTitle, content: currentLines.join('\n').trim() });
+          }
+          currentTitle = match[1].trim();
+          currentLines = [];
+        } else if (currentTitle !== null) {
+          currentLines.push(line);
+        }
+      }
+      // Oxirgi bobni ham saqlash
+      if (currentTitle !== null) {
+        parsed.push({ title: currentTitle, content: currentLines.join('\n').trim() });
+      }
+
+      // Ajratgich topildi va boblar bor
+      if (parsed.length > 0) {
+        return parsed;
+      }
+
+      // Ajratgich topilmasa — 5000 belgidan qismlarga bo'lamiz
+      const CHUNK_SIZE = 5000;
+      if (backendContent.length <= CHUNK_SIZE) {
+        return [{ title: '1-Qism', content: backendContent }];
+      }
+      const autoChapters: { title: string; content: string }[] = [];
+      const paragraphs = backendContent.split(/\n\n+/);
+      let currentContent = '';
+      let chapterNum = 1;
+      for (const p of paragraphs) {
+        if (currentContent.length + p.length > CHUNK_SIZE && currentContent.trim().length > 0) {
+          autoChapters.push({ title: `${chapterNum}-Qism`, content: currentContent.trim() });
+          chapterNum++;
+          currentContent = p + '\n\n';
+        } else {
+          currentContent += p + '\n\n';
+        }
+      }
+      if (currentContent.trim()) {
+        autoChapters.push({ title: `${chapterNum}-Qism`, content: currentContent.trim() });
+      }
+      return autoChapters;
+    }
+
+    // Fallback: oldindan yozilgan boblar yoki avtomatik yaratilgan
+    return bookChapters[bookId] || generateChapters(book?.title || 'Kitob');
+  }, [bookId, book]);
   const totalChapters = chapters.length;
 
   // Load preferences and reading progress
@@ -111,6 +219,10 @@ export default function BookReaderPage({ params }: { params: Promise<{ id: strin
     const savedFontSize = localStorage.getItem('reader_font_size');
     if (savedFontSize) setFontSize(Number(savedFontSize));
 
+    // Script (latin/cyrillic)
+    const savedScript = localStorage.getItem('reader_script') as any;
+    if (savedScript) setScript(savedScript);
+
     // Progress
     async function loadProgress() {
       const progress = await api.getReadingProgress(bookId);
@@ -122,16 +234,17 @@ export default function BookReaderPage({ params }: { params: Promise<{ id: strin
       setLoading(false);
     }
     loadProgress();
-  }, [bookId, chapters]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookId]);
 
   // Save progress on chapter change
   useEffect(() => {
     if (loading) return;
     const percent = Math.round(((currentChapter + 1) / totalChapters) * 100);
     api.saveReadingProgress(
-      bookId, 
-      percent, 
-      chapters[currentChapter].title, 
+      bookId,
+      percent,
+      chapters[currentChapter].title,
       1 // page
     );
   }, [currentChapter, bookId, chapters, totalChapters, loading]);
@@ -152,10 +265,10 @@ export default function BookReaderPage({ params }: { params: Promise<{ id: strin
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
+      document.documentElement.requestFullscreen().catch(() => { });
       setFullscreen(true);
     } else {
-      document.exitFullscreen().catch(() => {});
+      document.exitFullscreen().catch(() => { });
       setFullscreen(false);
     }
   };
@@ -190,7 +303,7 @@ export default function BookReaderPage({ params }: { params: Promise<{ id: strin
 
   // Get active style class depending on theme state
   const themeClass = theme === 'sepia' ? styles.themeSepia : theme === 'light' ? styles.themeLight : styles.themeDark;
-  
+
   return (
     <div className={`${styles.readerWrapper} ${themeClass}`}>
       {/* Top Navbar */}
@@ -201,26 +314,26 @@ export default function BookReaderPage({ params }: { params: Promise<{ id: strin
             <span>Chiqish</span>
           </Link>
           <div className={styles.divider}>|</div>
-          <span className={styles.bookTitle}>{book.title}</span>
+          <span className={styles.bookTitle}>{book?.title}</span>
         </div>
 
         <div className={styles.headerRight}>
-          <button 
-            className={styles.toolBtn} 
+          <button
+            className={styles.toolBtn}
             onClick={() => setSidebarOpen(s => !s)}
             title="Mundarija"
           >
             <Menu size={20} />
           </button>
-          <button 
+          <button
             className={`${styles.toolBtn} ${showSettings ? styles.toolBtnActive : ''}`}
             onClick={() => setShowSettings(s => !s)}
             title="Sozlamalar"
           >
             <Settings size={20} />
           </button>
-          <button 
-            className={styles.toolBtn} 
+          <button
+            className={styles.toolBtn}
             onClick={toggleFullscreen}
             title={fullscreen ? "Ekran rejimidan chiqish" : "To'liq ekran rejimi"}
           >
@@ -259,107 +372,193 @@ export default function BookReaderPage({ params }: { params: Promise<{ id: strin
 
       {/* Settings Bar Popover */}
       {showSettings && (
-        <div className={styles.settingsPopover}>
-          <div className={styles.popoverSection}>
-            <span className={styles.sectionLabel}>Mavzu ranglari</span>
-            <div className={styles.themeGrid}>
-              <button 
-                className={`${styles.themeOption} ${styles.themeOptionLight} ${theme === 'light' ? styles.optionActive : ''}`}
-                onClick={() => saveThemePref('light')}
+        <>
+          {/* Invisible overlay to close on outside click */}
+          <div
+            style={{ position: 'fixed', inset: 0, zIndex: 49 }}
+            onClick={() => setShowSettings(false)}
+          />
+          <div className={styles.settingsPopover} style={{ zIndex: 50 }}>
+            {/* Header with close button */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.6 }}>Sozlamalar</span>
+              <button
+                onClick={() => setShowSettings(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', opacity: 0.6, padding: '2px', display: 'flex', alignItems: 'center', borderRadius: '4px' }}
+                title="Yopish"
               >
-                Yorug'
-              </button>
-              <button 
-                className={`${styles.themeOption} ${styles.themeOptionSepia} ${theme === 'sepia' ? styles.optionActive : ''}`}
-                onClick={() => saveThemePref('sepia')}
-              >
-                Sepiya
-              </button>
-              <button 
-                className={`${styles.themeOption} ${styles.themeOptionDark} ${theme === 'dark' ? styles.optionActive : ''}`}
-                onClick={() => saveThemePref('dark')}
-              >
-                Qorong'u
+                <X size={16} />
               </button>
             </div>
-          </div>
 
-          <div className={styles.popoverSection}>
-            <span className={styles.sectionLabel}>Shrift o'lchami ({fontSize}px)</span>
-            <div className={styles.fontControls}>
-              <button onClick={() => saveFontPref(Math.max(14, fontSize - 2))} disabled={fontSize <= 14}>A-</button>
-              <button onClick={() => saveFontPref(Math.min(28, fontSize + 2))} disabled={fontSize >= 28}>A+</button>
+            <div className={styles.popoverSection}>
+              <span className={styles.sectionLabel}>Mavzu ranglari</span>
+              <div className={styles.themeGrid}>
+                <button
+                  className={`${styles.themeOption} ${styles.themeOptionLight} ${theme === 'light' ? styles.optionActive : ''}`}
+                  onClick={() => saveThemePref('light')}
+                >
+                  Yorug'
+                </button>
+                <button
+                  className={`${styles.themeOption} ${styles.themeOptionSepia} ${theme === 'sepia' ? styles.optionActive : ''}`}
+                  onClick={() => saveThemePref('sepia')}
+                >
+                  Sepiya
+                </button>
+                <button
+                  className={`${styles.themeOption} ${styles.themeOptionDark} ${theme === 'dark' ? styles.optionActive : ''}`}
+                  onClick={() => saveThemePref('dark')}
+                >
+                  Qorong'u
+                </button>
+              </div>
             </div>
-          </div>
 
-          <div className={styles.popoverSection}>
-            <span className={styles.sectionLabel}>Satrlar oralig'i</span>
-            <div className={styles.lineHeightGrid}>
-              <button 
-                className={`${styles.lhOption} ${lineHeight === 'normal' ? styles.optionActive : ''}`}
-                onClick={() => setLineHeight('normal')}
-              >
-                Zich
-              </button>
-              <button 
-                className={`${styles.lhOption} ${lineHeight === 'relaxed' ? styles.optionActive : ''}`}
-                onClick={() => setLineHeight('relaxed')}
-              >
-                O'rta
-              </button>
-              <button 
-                className={`${styles.lhOption} ${lineHeight === 'loose' ? styles.optionActive : ''}`}
-                onClick={() => setLineHeight('loose')}
-              >
-                Keng
-              </button>
+            <div className={styles.popoverSection}>
+              <span className={styles.sectionLabel}>Shrift o'lchami ({fontSize}px)</span>
+              <div className={styles.fontControls}>
+                <button onClick={() => saveFontPref(Math.max(14, fontSize - 2))} disabled={fontSize <= 14}>A-</button>
+                <button onClick={() => saveFontPref(Math.min(28, fontSize + 2))} disabled={fontSize >= 28}>A+</button>
+              </div>
+            </div>
+
+            <div className={styles.popoverSection}>
+              <span className={styles.sectionLabel}>Satrlar oralig'i</span>
+              <div className={styles.lineHeightGrid}>
+                <button
+                  className={`${styles.lhOption} ${lineHeight === 'normal' ? styles.optionActive : ''}`}
+                  onClick={() => setLineHeight('normal')}
+                >
+                  Zich
+                </button>
+                <button
+                  className={`${styles.lhOption} ${lineHeight === 'relaxed' ? styles.optionActive : ''}`}
+                  onClick={() => setLineHeight('relaxed')}
+                >
+                  O'rta
+                </button>
+                <button
+                  className={`${styles.lhOption} ${lineHeight === 'loose' ? styles.optionActive : ''}`}
+                  onClick={() => setLineHeight('loose')}
+                >
+                  Keng
+                </button>
+              </div>
+            </div>
+
+            {/* Script toggle */}
+            <div className={styles.popoverSection}>
+              <span className={styles.sectionLabel}>Yozuv turi</span>
+              <div className={styles.lineHeightGrid}>
+                <button
+                  className={`${styles.lhOption} ${script === 'latin' ? styles.optionActive : ''}`}
+                  onClick={() => { setScript('latin'); localStorage.setItem('reader_script', 'latin'); }}
+                >
+                  Lotin
+                </button>
+                <button
+                  className={`${styles.lhOption} ${script === 'cyrillic' ? styles.optionActive : ''}`}
+                  onClick={() => { setScript('cyrillic'); localStorage.setItem('reader_script', 'cyrillic'); }}
+                >
+                  Кирил
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* Reading Progress Indicator */}
       <div className={styles.progressLine}>
-        <div 
-          className={styles.progressBar} 
+        <div
+          className={styles.progressBar}
           style={{ width: `${((currentChapter + 1) / totalChapters) * 100}%` }}
         />
       </div>
 
       {/* Main Text Content Area */}
       <main className={styles.mainContainer}>
-        <article 
+        <article
           className={`${styles.readerBody} ${styles[`lh_${lineHeight}`]}`}
           style={{ fontSize: `${fontSize}px` }}
         >
           <span className={styles.chapterTag}>
             Bob {currentChapter + 1} / {totalChapters}
           </span>
-          <h2 className={styles.chapterTitle}>{chapters[currentChapter].title}</h2>
-          
-          {chapters[currentChapter].content.split('\n\n').map((para, i) => (
-            <p key={i} className={styles.paragraph}>{para}</p>
+          <h2 className={styles.chapterTitle}>{applyScript(chapters[currentChapter].title)}</h2>
+
+          {applyScript(chapters[currentChapter].content).split('\n\n').map((para, i) => (
+            <p key={i} className={styles.paragraph}>{para.split('\n').map((line, j) => (
+              <span key={j}>{line}{j < para.split('\n').length - 1 && <br />}</span>
+            ))}</p>
           ))}
+
+          {/* Oxirgi bobda "Davomi tez orada" kartasi */}
+          {currentChapter === totalChapters - 1 && (
+            <div style={{
+              marginTop: '3rem',
+              padding: '2rem 1.5rem',
+              borderRadius: '20px',
+              background: 'linear-gradient(135deg, rgba(139,92,246,0.15), rgba(79,142,247,0.12))',
+              border: '1px solid rgba(139,92,246,0.3)',
+              textAlign: 'center',
+              position: 'relative',
+              overflow: 'hidden',
+            }}>
+              {/* Dekor doiralari */}
+              <div style={{ position: 'absolute', top: '-30px', right: '-30px', width: '120px', height: '120px', borderRadius: '50%', background: 'rgba(139,92,246,0.08)', pointerEvents: 'none' }} />
+              <div style={{ position: 'absolute', bottom: '-20px', left: '-20px', width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(79,142,247,0.08)', pointerEvents: 'none' }} />
+
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>✨</div>
+              <h3 style={{
+                fontSize: '1.4rem', fontWeight: 800, marginBottom: '0.5rem',
+                background: 'linear-gradient(135deg, #a78bfa, #60a5fa)',
+                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+              }}>
+                Bu qism shu yerda tugaydi
+              </h3>
+              <p style={{ fontSize: '0.95rem', opacity: 0.75, marginBottom: '0.4rem', lineHeight: 1.6 }}>
+                <strong style={{ color: 'inherit' }}>{book?.title || 'Kitob'}</strong>ning keyingi qismi tayyorlanmoqda.
+              </p>
+              <p style={{ fontSize: '0.85rem', opacity: 0.55, marginBottom: '1.5rem' }}>
+                Davomi tez orada chiqadi — kuzatib boring! 🔔
+              </p>
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => window.history.back()}
+                  style={{
+                    padding: '10px 20px', borderRadius: '10px', fontWeight: 600,
+                    fontSize: '0.85rem', cursor: 'pointer', fontFamily: 'inherit',
+                    background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.4)',
+                    color: '#a78bfa'
+                  }}
+                >
+                  ← Kitob sahifasiga qaytish
+                </button>
+              </div>
+            </div>
+          )}
         </article>
 
         {/* Footer Page / Chapter Navigation */}
         <section className={styles.navigation}>
-          <button 
-            className={styles.navBtn} 
-            onClick={handlePrevChapter} 
+          <button
+            className={styles.navBtn}
+            onClick={handlePrevChapter}
             disabled={currentChapter === 0}
           >
             <ChevronLeft size={20} />
             <span>Oldingi bob</span>
           </button>
-          
+
           <span className={styles.navPageIndicator}>
             Bob {currentChapter + 1} of {totalChapters}
           </span>
 
-          <button 
-            className={styles.navBtn} 
-            onClick={handleNextChapter} 
+          <button
+            className={styles.navBtn}
+            onClick={handleNextChapter}
             disabled={currentChapter === totalChapters - 1}
           >
             <span>Keyingi bob</span>
