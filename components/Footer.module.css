@@ -28,7 +28,7 @@
 }
 
 .logoIcon {
-  color: var(--accent-blue);
+  color: var(--theme-color);
 }
 
 .logoText {
@@ -95,7 +95,7 @@
 }
 
 .socialLink:hover {
-  color: var(--accent-blue);
+  color: var(--theme-color);
 }
 
 @media (max-width: 1024px) {

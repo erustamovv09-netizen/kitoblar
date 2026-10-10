@@ -16,7 +16,7 @@
 }
 
 .titleIcon {
-  color: var(--accent-blue);
+  color: var(--theme-color);
 }
 
 .statsContainer {
@@ -180,7 +180,7 @@
 
 .textInput:focus,
 .textareaInput:focus {
-  border-color: var(--accent-blue);
+  border-color: var(--theme-color);
 }
 
 .ratingInputGroup {
@@ -215,7 +215,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  background-color: var(--accent-blue);
+  background-color: var(--theme-color);
   color: white;
   padding: 0.85rem 2rem;
   border-radius: 9999px;

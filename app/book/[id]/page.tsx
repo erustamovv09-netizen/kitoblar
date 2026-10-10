@@ -78,7 +78,7 @@ export default function BookDetails() {
       <main className={styles.main}>
         <div className={styles.container} style={{ textAlign: 'center', padding: '4rem 1rem' }}>
           <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Kitob topilmadi</h2>
-          <Link href="/" style={{ color: 'var(--accent-blue)' }}>← Bosh sahifaga qaytish</Link>
+          <Link href="/" style={{ color: 'var(--theme-color)' }}>← Bosh sahifaga qaytish</Link>
         </div>
       </main>
     );

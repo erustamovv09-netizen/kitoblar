@@ -30,7 +30,7 @@ export default function BookReviews({ bookId }: BookReviewsProps) {
 
     // Attempt to load username from localStorage
     if (typeof window !== "undefined") {
-      const storedName = localStorage.getItem('username');
+      const storedName = localStorage.getItem('name') || localStorage.getItem('username');
       if (storedName) setUserName(storedName);
     }
 

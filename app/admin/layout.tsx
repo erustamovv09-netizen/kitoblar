@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { BookOpen, LogOut, LayoutDashboard, Library, PlusCircle, BarChart2, Users, ChevronRight } from 'lucide-react';
 
-const ADMIN_PASSWORD = 'elshod123';
+const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'elshod123';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();

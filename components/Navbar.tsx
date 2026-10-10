@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { BookOpen, Search, Heart, User, Sun, Moon, Menu, X, LogOut, LogIn, BarChart2, ChevronDown } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import styles from './Navbar.module.css';
 
 export default function Navbar() {
@@ -16,6 +16,8 @@ export default function Navbar() {
   const [showDesktopCats, setShowDesktopCats] = useState(false);
   const [showMobileCats, setShowMobileCats] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
+
 
   const categories = [
     { name: 'Badiiy asarlar', slug: 'badiiy' },
@@ -135,7 +137,8 @@ export default function Navbar() {
       const username = localStorage.getItem('username');
       if (username) {
         const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-        fetch('http://' + host + ':8000/api/auth/ping/', {
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || `http://${host}:8000/api`;
+        fetch(`${baseUrl}/auth/ping/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username })
@@ -179,6 +182,11 @@ export default function Navbar() {
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, []);
+
+  if (pathname?.includes('/read') || pathname?.includes('/listen') || pathname?.startsWith('/admin')) {
+    // Hidden on reading, listening, and admin pages (admin uses its own layout)
+    if (!pathname.startsWith('/admin')) return null;
+  }
 
   return (
     <nav className={styles.navbar} style={{ '--hover-color': themeColor, '--hover-bg': themeHover } as React.CSSProperties}>

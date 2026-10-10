@@ -31,7 +31,8 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-      const res = await fetch(`http://${host}:8000/api/auth/login/`, {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || `http://${host}:8000/api`;
+      const res = await fetch(`${baseUrl}/auth/login/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: username.trim(), password }),

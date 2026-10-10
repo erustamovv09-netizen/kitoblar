@@ -130,7 +130,7 @@
 }
 
 .card:hover .title {
-  color: var(--accent-blue);
+  color: var(--theme-color);
 }
 
 .author {
@@ -165,7 +165,7 @@
 .price {
   font-size: 0.88rem;
   font-weight: 700;
-  background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+  background: var(--theme-color);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;

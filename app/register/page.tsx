@@ -55,7 +55,8 @@ export default function RegisterPage() {
     
     try {
       const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-      const res = await fetch(`http://${host}:8000/api/auth/register/`, {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || `http://${host}:8000/api`;
+      const res = await fetch(`${baseUrl}/auth/register/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: name.trim(), username: username.trim(), email: email.trim(), password }),

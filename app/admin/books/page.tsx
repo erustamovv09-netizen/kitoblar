@@ -169,7 +169,7 @@ export default function AdminBooksPage() {
           </div>
 
           {/* Mobile Cards — shown only on small screens */}
-          <div className="mobile-cards" style={{ flexDirection: 'column', gap: '0.75rem' }}>
+          <div className="mobile-cards" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {filtered.map(book => (
               <div key={book.id} style={{
                 background: 'var(--card-bg)', border: '1px solid var(--card-border)',

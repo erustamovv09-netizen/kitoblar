@@ -37,7 +37,8 @@ export default function AnalyticsPage() {
     setLoading(true); setError('');
     try {
       const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-      const res = await fetch(`http://${host}:8000/api/admin/stats/`);
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || `http://${host}:8000/api`;
+      const res = await fetch(`${baseUrl}/admin/stats/`);
       if (!res.ok) throw new Error('Server xatosi: ' + res.status);
       setStats(await res.json());
       setLastUpdated(new Date().toLocaleTimeString('uz-UZ'));
@@ -86,7 +87,7 @@ export default function AnalyticsPage() {
             <StatCard label="Sharhlar" value={stats.total_reviews} sub="Jami" color="#f87171" icon={<MessageSquare size={18} />} />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
             <div style={cardStyle}>
               <h3 style={{ fontWeight: 700, marginBottom: '1rem', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <TrendingUp size={16} style={{ color: 'var(--theme-color, var(--accent-blue))' }} /> Kategoriyalar

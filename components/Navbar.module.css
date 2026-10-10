@@ -38,7 +38,7 @@
 }
 
 .logoIcon {
-  color: var(--accent-blue);
+  color: var(--theme-color);
 }
 
 .logoText {
@@ -130,7 +130,7 @@
   position: absolute;
   top: -4px;
   right: -4px;
-  background: var(--accent-blue);
+  background: var(--theme-color);
   color: #fff;
   font-size: 0.65rem;
   font-weight: 700;
@@ -303,7 +303,7 @@
   align-items: center;
   gap: 6px;
   padding: 7px 14px;
-  background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-purple) 100%);
+  background: var(--theme-color);
   border-radius: 8px;
   color: #fff;
   font-size: 0.85rem;
@@ -323,7 +323,7 @@
   align-items: center;
   gap: 6px;
   padding: 5px 10px;
-  background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-purple) 100%);
+  background: var(--theme-color);
   border-radius: 6px;
   color: #fff;
   font-size: 0.8rem;
@@ -374,7 +374,7 @@
 
 .dropdownLink:hover {
   background-color: var(--search-bg);
-  color: var(--accent-blue);
+  color: var(--theme-color);
 }
 
 .mobileCategoryList {

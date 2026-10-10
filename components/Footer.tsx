@@ -1,8 +1,15 @@
+"use client";
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { BookOpen } from 'lucide-react';
 import styles from './Footer.module.css';
 
 export default function Footer() {
+  const pathname = usePathname();
+  if (pathname?.includes('/read') || pathname?.includes('/listen') || pathname?.startsWith('/admin')) {
+    return null;
+  }
+
   return (
     <footer className={styles.footer}>
       <div className={styles.container}>
