@@ -14,7 +14,19 @@ export default function Hero() {
 
   useEffect(() => {
     async function load() {
-      // 1. First check admin_books in localStorage for an explicit weekly top pick
+      // 1. Birinchi bo'lib API / Backend kitoblarini tekshirish (haqiqiy manba)
+      try {
+        const books = await api.getBooks();
+        if (books && books.length > 0) {
+          const top = books.find(b => (b as any).is_weekly_top === true || (b as any).isWeeklyTop === true);
+          if (top) {
+            setHeroBook(top);
+            return;
+          }
+        }
+      } catch {}
+
+      // 2. Agar API ishlamasa, faqatgina shunda localStorage ga murojaat qilish
       try {
         const adminBooks = JSON.parse(localStorage.getItem('admin_books') || '[]');
         const adminWeekly = adminBooks.find((b: any) => b.is_weekly_top === true || b.isWeeklyTop === true);
@@ -23,16 +35,6 @@ export default function Hero() {
           return;
         }
       } catch {}
-
-      // 2. Fall back to API books — ONLY pick if explicitly flagged as weekly top!
-      const books = await api.getBooks();
-      if (books && books.length > 0) {
-        const top = books.find(b => (b as any).is_weekly_top === true || (b as any).isWeeklyTop === true);
-        if (top) {
-          setHeroBook(top);
-          return;
-        }
-      }
 
       // If no book has weekly top enabled, show default classic hero ("O'tkan kunlar")
       setHeroBook(null);

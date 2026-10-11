@@ -14,6 +14,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [pass, setPass] = useState('');
   const [error, setError] = useState('');
   const [showMobileDashMenu, setShowMobileDashMenu] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   useEffect(() => {
     const ok = sessionStorage.getItem('admin_auth');
@@ -140,7 +141,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <ChevronRight size={18} style={{ transform: 'rotate(180deg)' }} />
               <span>Saytga qaytish</span>
             </Link>
-            <button onClick={handleLogout} style={{
+            <button onClick={() => setShowLogoutConfirm(true)} style={{
               width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px',
               borderRadius: '10px', color: '#f87171', fontSize: '0.88rem', fontWeight: 600,
               background: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.15)',
@@ -218,7 +219,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </Link>
           );
         })}
-        <button onClick={handleLogout} style={{
+        <button onClick={() => setShowLogoutConfirm(true)} style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px',
           color: '#f87171', background: 'none', border: 'none', cursor: 'pointer',
           fontFamily: 'inherit', fontSize: '0.65rem', fontWeight: 600, padding: '4px 8px', minWidth: '56px'
@@ -228,7 +229,71 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </button>
       </nav>
 
+      {/* Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+        }}>
+          <div style={{
+            background: 'var(--card-bg, #121826)',
+            border: '1px solid var(--card-border, rgba(255, 255, 255, 0.12))',
+            borderRadius: '20px', padding: '2rem 1.75rem', maxWidth: '380px', width: '100%',
+            boxShadow: '0 25px 50px rgba(0, 0, 0, 0.5)', textAlign: 'center',
+            animation: 'fadeIn 0.2s ease-out'
+          }}>
+            <div style={{
+              width: '56px', height: '56px', borderRadius: '16px',
+              background: 'rgba(239, 68, 68, 0.12)', color: '#f87171',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 1.25rem'
+            }}>
+              <LogOut size={28} />
+            </div>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
+              Admin paneldan chiqish
+            </h3>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1.75rem', lineHeight: 1.5 }}>
+              Haqiqatan ham admin paneldan chiqmoqchimisiz?
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setShowLogoutConfirm(false)}
+                style={{
+                  padding: '11px 16px', borderRadius: '12px',
+                  background: 'var(--search-bg, rgba(255,255,255,0.06))',
+                  border: '1px solid var(--border-color, rgba(255,255,255,0.1))',
+                  color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.9rem',
+                  cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s'
+                }}
+              >
+                Bekor qilish
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLogoutConfirm(false);
+                  handleLogout();
+                }}
+                style={{
+                  padding: '11px 16px', borderRadius: '12px',
+                  background: '#ef4444', border: 'none',
+                  color: '#fff', fontWeight: 700, fontSize: '0.9rem',
+                  cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s',
+                  boxShadow: '0 4px 15px rgba(239, 68, 68, 0.35)'
+                }}
+              >
+                Ha, chiqish
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style>{`
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
         @keyframes spin { to { transform: rotate(360deg); } }
         .admin-sidebar { display: flex; }
         .admin-bottom-nav { display: none; }

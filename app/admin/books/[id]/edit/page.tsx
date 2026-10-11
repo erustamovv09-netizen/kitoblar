@@ -71,7 +71,15 @@ export default function EditBookPage() {
         setPreviewUrl(b.image || b.imageUrl || '');
       }
 
-      // 1. Avval localStorage da admin tomonidan saqlangan versiyani tekshir
+      // 1. Avval API dan yuklab ol (backend haqiqiy ma'lumotlar manbai)
+      const book = await api.getBook(bookId);
+      if (book) {
+        fillForm(book);
+        setLoading(false);
+        return;
+      }
+
+      // 2. Agar API ishlamasa, localStorage dan qidir
       try {
         const stored = localStorage.getItem('admin_books');
         if (stored) {
@@ -80,18 +88,12 @@ export default function EditBookPage() {
           if (local) {
             fillForm(local);
             setLoading(false);
-            return; // Topildi — API ga bormasdan to'xtat
+            return;
           }
         }
       } catch {}
 
-      // 2. API dan yuklab ol (backend yoki fallback)
-      const book = await api.getBook(bookId);
-      if (book) {
-        fillForm(book);
-      } else {
-        setError('Kitob topilmadi. Sahifa orqaga qaytib boshqa kitobni tanlang.');
-      }
+      setError('Kitob topilmadi. Sahifa orqaga qaytib boshqa kitobni tanlang.');
       setLoading(false);
     }
     loadBook();

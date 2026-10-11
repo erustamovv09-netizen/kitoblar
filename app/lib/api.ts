@@ -85,13 +85,30 @@ export function formatPublishedYear(year: any, title?: string, id?: string): str
     return `${yearDigits}, Sharq nashriyoti`;
   } else if (titleLower.includes('harom') || titleLower.includes('ko‘z') || titleLower.includes("ko'z") || String(id) === '3') {
     return `${yearDigits}, Oltin Qalam`;
-  } else if (titleLower.includes('arosat') || String(id) === '4') {
-    return `${yearDigits}, Huzur Nashriyoti`;
+  } else if (titleLower.includes('arosat') || String(id) === '4' || String(id) === '5') {
+    return `${yearDigits}, Huzur nashriyoti`;
   } else if (titleLower.includes('alkimyogar')) {
     return `${yearDigits}, Yangi asr avlodi`;
   }
 
   return str;
+}
+
+function fixMediaUrl(url?: string): string {
+  if (!url) return '';
+  if (typeof window !== 'undefined' && window.location.hostname) {
+    return url.replace(/https?:\/\/(127\.0\.0\.1|localhost):8000/g, `http://${window.location.hostname}:8000`);
+  }
+  return url;
+}
+
+function formatPrice(val: any): string {
+  if (!val && val !== 0) return "0 so'm";
+  const str = String(val).trim();
+  if (str.includes("so'm")) return str;
+  const num = parseFloat(str.replace(/[^\d.-]/g, ''));
+  if (isNaN(num)) return str;
+  return `${Math.round(num).toLocaleString('uz-UZ')} so'm`;
 }
 
 function mapDjangoBookToBook(djangoBook: any): Book {
@@ -110,22 +127,22 @@ function mapDjangoBookToBook(djangoBook: any): Book {
     djangoBook.audio_file ||
     (isAudio ? 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' : '');
 
+  const rawImage = djangoBook.cover_image || djangoBook.image || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop';
+
   return {
     id: String(djangoBook.id),
     title: djangoBook.title,
     author: djangoBook.author,
-    price: djangoBook.price && typeof djangoBook.price === 'string' && !djangoBook.price.includes("so'm")
-      ? `${Number(djangoBook.price).toLocaleString('uz-UZ').replace(/[,.]00$/, '')} so'm`
-      : djangoBook.price || "0 so'm",
-    rating: Number(djangoBook.rating) || 0,
-    image: djangoBook.cover_image || djangoBook.image || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop',
+    price: formatPrice(djangoBook.price),
+    rating: Number(djangoBook.rating) != null && !isNaN(Number(djangoBook.rating)) ? Number(djangoBook.rating) : 5,
+    image: fixMediaUrl(rawImage),
     category: djangoBook.category_name || djangoBook.category || 'Badiiy',
     description: djangoBook.description || '',
     pages: Number(djangoBook.pages) || 0,
     language: djangoBook.language || "O'zbek tili",
     publishedYear: formatPublishedYear(djangoBook.year || djangoBook.publishedYear, djangoBook.title, djangoBook.id),
     hasAudio: isAudio,
-    audioUrl: resolvedAudioUrl,
+    audioUrl: fixMediaUrl(resolvedAudioUrl),
     content: djangoBook.content || '',
     is_weekly_top: Boolean(djangoBook.is_weekly_top || djangoBook.isWeeklyTop),
     isWeeklyTop: Boolean(djangoBook.is_weekly_top || djangoBook.isWeeklyTop),
@@ -172,7 +189,7 @@ export const api = {
     let raw: any[] = [];
     try {
       const res = await fetch(`${getBase()}/books/`, {
-        signal: AbortSignal.timeout(2000),
+        signal: AbortSignal.timeout(4000),
       });
       if (res.ok) {
         raw = await res.json();
@@ -191,20 +208,44 @@ export const api = {
     const deleted = getDeletedBookIds();
     const filtered = deleted.size > 0 ? books.filter(b => !deleted.has(String(b.id))) : books;
 
-    // ── 3a. Backend available → only backend books (+ local edits to existing) ──
+    // ── 3a. Backend available → backend books are authoritative ──
     if (fromBackend) {
       const localEdits = getLocalAdminBooks();
-      if (Object.keys(localEdits).length === 0) return filtered;
-      return filtered.map(book => {
-        const edit = localEdits[book.id];
-        if (!edit) return book;
-        return {
-          ...book,
-          ...edit,
-          id: book.id,
-          publishedYear: formatPublishedYear(edit.publishedYear || book.publishedYear, edit.title || book.title, book.id),
-        };
-      });
+      const backendIds = new Set(filtered.map(b => String(b.id)));
+
+      // Auto-clean stale edits from localStorage for books that exist on backend
+      if (typeof window !== 'undefined') {
+        try {
+          const stored: any[] = JSON.parse(localStorage.getItem('admin_books') || '[]');
+          const cleaned = stored.filter(b => !backendIds.has(String(b.id)));
+          if (cleaned.length !== stored.length) {
+            localStorage.setItem('admin_books', JSON.stringify(cleaned));
+          }
+        } catch {}
+      }
+
+      const localOnlyBooks = Object.values(localEdits)
+        .filter((e: any) => !backendIds.has(String(e.id)) && !deleted.has(String(e.id)))
+        .map((e: any) => ({
+          id: String(e.id),
+          title: e.title || '',
+          author: e.author || '',
+          price: formatPrice(e.price),
+          rating: Number(e.rating) || 5,
+          image: fixMediaUrl(e.image || e.imageUrl || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop'),
+          category: e.category || 'Badiiy',
+          description: e.description || '',
+          pages: Number(e.pages) || 0,
+          language: e.language || "O'zbek tili",
+          publishedYear: formatPublishedYear(e.publishedYear || e.year || '2024', e.title, e.id),
+          hasAudio: !!e.hasAudio,
+          audioUrl: fixMediaUrl(e.audioUrl || ''),
+          content: e.content || '',
+          is_weekly_top: Boolean(e.is_weekly_top || e.isWeeklyTop),
+          isWeeklyTop: Boolean(e.is_weekly_top || e.isWeeklyTop),
+        } as Book));
+
+      return [...filtered, ...localOnlyBooks];
     }
 
     // ── 3b. Backend offline → booksDB + localStorage-only books ──────────────
@@ -216,16 +257,16 @@ export const api = {
         id: String(e.id),
         title: e.title || '',
         author: e.author || '',
-        price: e.price || "0 so'm",
-        rating: Number(e.rating) || 0,
-        image: e.image || e.imageUrl || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop',
+        price: formatPrice(e.price),
+        rating: Number(e.rating) || 5,
+        image: fixMediaUrl(e.image || e.imageUrl || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop'),
         category: e.category || 'Badiiy',
         description: e.description || '',
         pages: Number(e.pages) || 0,
         language: e.language || "O'zbek tili",
         publishedYear: e.publishedYear || e.year || 2024,
         hasAudio: !!e.hasAudio,
-        audioUrl: e.audioUrl || '',
+        audioUrl: fixMediaUrl(e.audioUrl || ''),
         content: e.content || '',
         is_weekly_top: Boolean(e.is_weekly_top || e.isWeeklyTop),
         isWeeklyTop: Boolean(e.is_weekly_top || e.isWeeklyTop),
@@ -236,7 +277,7 @@ export const api = {
       ...filtered.map(book => {
         const edit = localEdits[book.id];
         if (!edit) return book;
-        return { ...book, ...edit, id: book.id };
+        return { ...book, ...edit, id: book.id, price: formatPrice(edit.price || book.price) };
       }),
       ...localOnlyBooks,
     ];
@@ -244,26 +285,26 @@ export const api = {
 
 
   async getBook(id: string): Promise<Book | null> {
-    // First check locally-created admin books (local_ IDs only)
-    if (typeof window !== 'undefined') {
+    // 1. First check locally-created admin books (local_ IDs only)
+    if (typeof window !== 'undefined' && String(id).startsWith('local_')) {
       try {
         const adminBooks: any[] = JSON.parse(localStorage.getItem('admin_books') || '[]');
         const localBook = adminBooks.find((b: any) => String(b.id) === String(id));
-        if (localBook && String(localBook.id).startsWith('local_')) {
+        if (localBook) {
           return {
             id: String(localBook.id),
             title: localBook.title || '',
             author: localBook.author || '',
-            price: localBook.price || "0 so'm",
-            rating: Number(localBook.rating) || 0,
-            image: localBook.image || localBook.imageUrl || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop',
+            price: formatPrice(localBook.price),
+            rating: Number(localBook.rating) || 5,
+            image: fixMediaUrl(localBook.image || localBook.imageUrl || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop'),
             category: localBook.category || 'Badiiy',
             description: localBook.description || '',
             pages: Number(localBook.pages) || 0,
             language: localBook.language || "O'zbek tili",
             publishedYear: localBook.publishedYear || localBook.year || 2024,
             hasAudio: !!localBook.hasAudio,
-            audioUrl: localBook.audioUrl || '',
+            audioUrl: fixMediaUrl(localBook.audioUrl || ''),
             content: localBook.content || '',
             is_weekly_top: Boolean(localBook.is_weekly_top || localBook.isWeeklyTop),
             isWeeklyTop: Boolean(localBook.is_weekly_top || localBook.isWeeklyTop),
@@ -272,33 +313,38 @@ export const api = {
       } catch { }
     }
 
+    // 2. Fetch from backend
     const localBook = booksDB.find((b) => b.id === id) || null;
     const raw = await fetchWithFallback<any | null>(`/books/${id}/`, { method: 'GET' }, localBook);
     const book = raw ? mapDjangoBookToBook(raw) : null;
-    if (!book) return null;
-    // Override with admin-edited local data if available
+    if (book) {
+      return book;
+    }
+
+    // 3. Fallback to localStorage only if backend returned null
     const localEdits = getLocalAdminBooks();
     const edit = localEdits[id];
     if (edit) {
       return {
-        ...book,
-        title: edit.title || book.title,
-        author: edit.author || book.author,
-        category: edit.category || book.category,
-        price: edit.price || book.price,
-        description: edit.description || book.description,
-        pages: edit.pages != null ? Number(edit.pages) : book.pages,
-        language: edit.language || book.language,
-        publishedYear: formatPublishedYear(edit.publishedYear || book.publishedYear, edit.title || book.title, book.id),
-        rating: edit.rating != null ? Number(edit.rating) : book.rating,
-        hasAudio: edit.hasAudio != null ? !!edit.hasAudio : book.hasAudio,
-        audioUrl: edit.audioUrl || book.audioUrl,
-        content: edit.content || (book as any).content || '',
-        // Most important: use uploaded/edited image if non-empty
-        image: edit.image || edit.imageUrl || book.image,
-      };
+        id: String(id),
+        title: edit.title || '',
+        author: edit.author || '',
+        category: edit.category || 'Badiiy',
+        price: formatPrice(edit.price),
+        description: edit.description || '',
+        pages: edit.pages != null ? Number(edit.pages) : 0,
+        language: edit.language || "O'zbek tili",
+        publishedYear: formatPublishedYear(edit.publishedYear || '2024', edit.title, id),
+        rating: edit.rating != null ? Number(edit.rating) : 5,
+        hasAudio: !!edit.hasAudio,
+        audioUrl: fixMediaUrl(edit.audioUrl || ''),
+        content: edit.content || '',
+        image: fixMediaUrl(edit.image || edit.imageUrl || ''),
+        is_weekly_top: Boolean(edit.is_weekly_top || edit.isWeeklyTop),
+        isWeeklyTop: Boolean(edit.is_weekly_top || edit.isWeeklyTop),
+      } as any;
     }
-    return book;
+    return null;
   },
 
   async getRecommendedBooks(excludeId: string): Promise<Book[]> {
@@ -395,24 +441,84 @@ export const api = {
     try {
       const url = `${getBase()}/books/${id}/`;
       let res: Response;
-      const patchData = {
-        ...data,
-        has_audio: data.hasAudio !== undefined ? data.hasAudio : data.has_audio,
-        audio_url: data.audioUrl !== undefined ? data.audioUrl : data.audio_url,
+
+      const categoryMap: Record<string, number> = {
+        'badiiy': 1,
+        'badiiy asarlar': 1,
+        'biznes': 2,
+        'ilmiy': 3,
+        'tarixiy': 4,
+        'detektiv': 5,
+        'bolalar adabiyoti': 6,
+        'bolalar': 6,
+        'jahon adabiyoti': 7,
+        'jahon': 7,
+        'shaxsiy rivojlanish': 8,
+        'shaxsiy': 8,
+        'moliya': 9,
+        'falsafa': 10,
+        'psixologiya': 11,
       };
-      if (imageFile) {
+      let categoryId = Number(data.category);
+      if (isNaN(categoryId) || categoryId <= 0) {
+        const norm = String(data.category || '').toLowerCase().trim();
+        categoryId = categoryMap[norm] || 1;
+      }
+
+      const numericPrice = typeof data.price === 'string'
+        ? Number(data.price.replace(/[^\d.-]/g, '')) || 0
+        : Number(data.price) || 0;
+
+      const yearDigits = Number(String(data.year || data.publishedYear || '').match(/\d{4}/)?.[0] || '2024');
+      const ratingNum = parseFloat(String(data.rating || '5.0')) || 5.0;
+      const isWeekly = Boolean(data.is_weekly_top || data.isWeeklyTop);
+
+      const patchData: Record<string, any> = {
+        title: data.title ? String(data.title).trim() : '',
+        author: data.author ? String(data.author).trim() : '',
+        category: categoryId,
+        price: numericPrice,
+        year: yearDigits,
+        rating: ratingNum,
+        pages: Number(data.pages) || 0,
+        language: data.language || "O'zbek tili",
+        description: data.description || '',
+        content: data.content || '',
+        is_weekly_top: isWeekly,
+        is_trending: isWeekly,
+        has_audio: Boolean(data.hasAudio !== undefined ? data.hasAudio : data.has_audio),
+        audio_url: data.audioUrl || data.audio_url || '',
+      };
+
+      let fileToUpload = imageFile;
+      if (!fileToUpload && typeof data.imageUrl === 'string' && data.imageUrl.startsWith('data:image/')) {
+        try {
+          const parts = data.imageUrl.split(',');
+          const mime = parts[0].split(';')[0].split(':')[1] || 'image/jpeg';
+          const byteCharacters = atob(parts[1]);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          const ext = mime.includes('png') ? 'png' : 'jpg';
+          fileToUpload = new File([byteArray], `cover.${ext}`, { type: mime });
+        } catch {}
+      }
+
+      if (fileToUpload) {
         const fd = new FormData();
         Object.entries(patchData).forEach(([k, v]) => {
           if (v !== undefined && v !== null) fd.append(k, String(v));
         });
-        fd.append('cover_image', imageFile);
-        res = await fetch(url, { method: 'PATCH', body: fd, signal: AbortSignal.timeout(6000) });
+        fd.append('cover_image', fileToUpload);
+        res = await fetch(url, { method: 'PATCH', body: fd, signal: AbortSignal.timeout(10000) });
       } else {
         res = await fetch(url, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(patchData),
-          signal: AbortSignal.timeout(6000),
+          signal: AbortSignal.timeout(10000),
         });
       }
 
@@ -430,6 +536,7 @@ export const api = {
           ...(idx >= 0 ? stored[idx] : {}),
           ...data,
           id: String(id),
+          price: formatPrice(data.price),
         };
         if (data.is_weekly_top || data.isWeeklyTop) {
           stored.forEach((b: any) => {

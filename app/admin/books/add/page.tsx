@@ -162,7 +162,8 @@ export default function AddBookPage() {
         fd.append('description', form.description);
         fd.append('pages', String(Number(form.pages) || 0));
         fd.append('language', form.language || "O'zbek tili");
-        fd.append('year', form.publishedYear || String(new Date().getFullYear()));
+        const yearDigits = (form.publishedYear || '').match(/\d{4}/)?.[0] || String(new Date().getFullYear());
+        fd.append('year', yearDigits);
         fd.append('rating', String(parseFloat(form.rating) || 5.0));
         fd.append('is_weekly_top', form.isWeeklyTop ? 'true' : 'false');
         fd.append('is_trending', form.isWeeklyTop ? 'true' : 'false');
@@ -178,7 +179,7 @@ export default function AddBookPage() {
             const ext = blob.type.includes('png') ? 'png' : 'jpg';
             fd.append('cover_image', new File([blob], `cover.${ext}`, { type: blob.type }));
           } catch {
-            // URL not fetchable — backend call will still proceed (cover_image missing)
+            // URL not fetchable — backend call will still proceed (cover_image optional)
           }
         }
 
@@ -189,6 +190,18 @@ export default function AddBookPage() {
         });
 
         if (response.ok || response.status === 201) {
+          const createdBook = await response.json();
+          // Store publisher format locally
+          try {
+            const stored: any[] = JSON.parse(localStorage.getItem('admin_books') || '[]');
+            stored.unshift({
+              ...form,
+              id: String(createdBook.id),
+              publishedYear: form.publishedYear || yearDigits,
+            });
+            localStorage.setItem('admin_books', JSON.stringify(stored));
+          } catch {}
+
           setLoading(false);
           setSavedToBackend(true);
           setSuccess(true);

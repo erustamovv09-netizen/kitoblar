@@ -100,6 +100,7 @@ export default function AccountPage() {
     const [quoteTag, setQuoteTag] = useState('Dono fikr');
     const [quoteCopiedId, setQuoteCopiedId] = useState<string | null>(null);
     const [selectedBadge, setSelectedBadge] = useState<any | null>(null);
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
     const [errors, setErrors] = useState<{ name?: string; email?: string }>({});
     const [books, setBooks] = useState<any[]>([]);
@@ -687,7 +688,7 @@ export default function AccountPage() {
                                     <Edit3 size={16} />
                                     {editing ? 'Tahrirlashni yopish' : 'Profilni tahrirlash'}
                                 </button>
-                                <button className={`${styles.btn} ${styles.btnDanger}`} onClick={logout} style={{ width: '100%' }}>
+                                <button className={`${styles.btn} ${styles.btnDanger}`} onClick={() => setShowLogoutConfirm(true)} style={{ width: '100%' }}>
                                     <LogOut size={16} />
                                     Chiqish
                                 </button>
@@ -1367,6 +1368,69 @@ export default function AccountPage() {
                         >
                             Tushunarli
                         </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Logout Confirmation Modal */}
+            {showLogoutConfirm && (
+                <div style={{
+                    position: 'fixed', inset: 0, zIndex: 9999,
+                    background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(8px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+                }}>
+                    <div style={{
+                        background: 'var(--card-bg, #121826)',
+                        border: '1px solid var(--card-border, rgba(255, 255, 255, 0.12))',
+                        borderRadius: '20px', padding: '2rem 1.75rem', maxWidth: '380px', width: '100%',
+                        boxShadow: '0 25px 50px rgba(0, 0, 0, 0.5)', textAlign: 'center',
+                        animation: 'fadeIn 0.2s ease-out'
+                    }}>
+                        <div style={{
+                            width: '56px', height: '56px', borderRadius: '16px',
+                            background: 'rgba(239, 68, 68, 0.12)', color: '#f87171',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            margin: '0 auto 1.25rem'
+                        }}>
+                            <LogOut size={28} />
+                        </div>
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
+                            Hisobdan chiqish
+                        </h3>
+                        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1.75rem', lineHeight: 1.5 }}>
+                            Haqiqatan ham hisobingizdan chiqmoqchimisiz?
+                        </p>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                            <button
+                                type="button"
+                                onClick={() => setShowLogoutConfirm(false)}
+                                style={{
+                                    padding: '11px 16px', borderRadius: '12px',
+                                    background: 'var(--search-bg, rgba(255,255,255,0.06))',
+                                    border: '1px solid var(--border-color, rgba(255,255,255,0.1))',
+                                    color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.9rem',
+                                    cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s'
+                                }}
+                            >
+                                Bekor qilish
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowLogoutConfirm(false);
+                                    logout();
+                                }}
+                                style={{
+                                    padding: '11px 16px', borderRadius: '12px',
+                                    background: '#ef4444', border: 'none',
+                                    color: '#fff', fontWeight: 700, fontSize: '0.9rem',
+                                    cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s',
+                                    boxShadow: '0 4px 15px rgba(239, 68, 68, 0.35)'
+                                }}
+                            >
+                                Ha, chiqish
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
