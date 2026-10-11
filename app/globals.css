@@ -167,7 +167,8 @@ html, body {
 
 /* Touch-friendly tap targets */
 @media (max-width: 768px) {
-  button, a, [role="button"] {
+  /* Only apply to regular block/form buttons, never to icons or dots */
+  .btn, .submitBtn, .ctaBtn {
     min-height: 40px;
   }
 }

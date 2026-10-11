@@ -16,6 +16,7 @@ import {
   X
 } from 'lucide-react';
 import { api, Book } from '../../../lib/api';
+import { parseBookIntoChapters } from '@/app/lib/chapters';
 import styles from './page.module.css';
 
 // Mock contents for the books in the DB to make the reader feel real
@@ -148,60 +149,12 @@ export default function BookReaderPage({ params }: { params: Promise<{ id: strin
   const chapters = useMemo(() => {
     const backendContent = (book as any)?.content as string | undefined;
 
-    // Backend'da matn bor bo'lsa — uni boblarga bo'lamiz
+    // Backend'da matn bor bo'lsa — uni aqlli algoritm bilan boblarga bo'lamiz
     if (backendContent && backendContent.trim()) {
-      // Qator-qator o'qib, "--- Bob nomi ---" qatorlarini bob ajratgich sifatida ishlatamiz
-      const lines = backendContent.split('\n');
-      const parsed: { title: string; content: string }[] = [];
-      let currentTitle: string | null = null;
-      let currentLines: string[] = [];
-
-      for (const line of lines) {
-        // Qator aynan "--- ... ---" formatida bo'lsa — yangi bob boshlanadi
-        const match = line.trim().match(/^---\s*(.+?)\s*---$/);
-        if (match) {
-          // Oldingi bobni saqlash
-          if (currentTitle !== null) {
-            parsed.push({ title: currentTitle, content: currentLines.join('\n').trim() });
-          }
-          currentTitle = match[1].trim();
-          currentLines = [];
-        } else if (currentTitle !== null) {
-          currentLines.push(line);
-        }
-      }
-      // Oxirgi bobni ham saqlash
-      if (currentTitle !== null) {
-        parsed.push({ title: currentTitle, content: currentLines.join('\n').trim() });
-      }
-
-      // Ajratgich topildi va boblar bor
+      const parsed = parseBookIntoChapters(backendContent);
       if (parsed.length > 0) {
         return parsed;
       }
-
-      // Ajratgich topilmasa — 5000 belgidan qismlarga bo'lamiz
-      const CHUNK_SIZE = 5000;
-      if (backendContent.length <= CHUNK_SIZE) {
-        return [{ title: '1-Qism', content: backendContent }];
-      }
-      const autoChapters: { title: string; content: string }[] = [];
-      const paragraphs = backendContent.split(/\n\n+/);
-      let currentContent = '';
-      let chapterNum = 1;
-      for (const p of paragraphs) {
-        if (currentContent.length + p.length > CHUNK_SIZE && currentContent.trim().length > 0) {
-          autoChapters.push({ title: `${chapterNum}-Qism`, content: currentContent.trim() });
-          chapterNum++;
-          currentContent = p + '\n\n';
-        } else {
-          currentContent += p + '\n\n';
-        }
-      }
-      if (currentContent.trim()) {
-        autoChapters.push({ title: `${chapterNum}-Qism`, content: currentContent.trim() });
-      }
-      return autoChapters;
     }
 
     // Fallback: oldindan yozilgan boblar yoki avtomatik yaratilgan

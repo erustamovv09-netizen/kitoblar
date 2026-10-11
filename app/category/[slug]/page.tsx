@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, BookOpen } from 'lucide-react';
 import BookCard from '@/components/BookCard';
-import { api, Book } from '@/app/lib/api';
+import { api, Book, getApiBaseUrl } from '@/app/lib/api';
 import styles from './page.module.css';
 import { useParams } from 'next/navigation';
 import { motion, Variants } from 'framer-motion';
@@ -72,10 +72,8 @@ export default function CategoryPage() {
     if (!slug) return;
     async function load() {
       setLoading(true);
-      // Backend bilan ulangan bo'lsa, slug bo'yicha filtrlash
-      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
       try {
-        const res = await fetch(`${API_BASE}/books/?category=${slug}`, {
+        const res = await fetch(`${getApiBaseUrl()}/books/?category=${slug}`, {
           signal: AbortSignal.timeout(3000)
         });
         if (res.ok) {
@@ -189,11 +187,28 @@ export default function CategoryPage() {
           >
             <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📚</div>
             <p style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
-              Bu kategoriyada hali kitob yo&apos;q
+              Ushbu bo&apos;limda hozircha kitoblar mavjud emas
             </p>
-            <p style={{ fontSize: '0.9rem' }}>
-              Admin panel orqali yangi kitoblar qo&apos;shing
+            <p style={{ fontSize: '0.9rem', marginBottom: '1.25rem' }}>
+              Tez kunda yangi kitoblar qo&apos;shiladi. Boshqa bo&apos;limlarni ko&apos;rib chiqishingiz mumkin.
             </p>
+            <Link
+              href="/search"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 20px',
+                background: 'var(--theme-color, var(--accent-blue))',
+                color: '#fff',
+                borderRadius: '10px',
+                textDecoration: 'none',
+                fontWeight: 600,
+                fontSize: '0.9rem',
+              }}
+            >
+              Barcha kitoblarni ko&apos;rish
+            </Link>
           </motion.div>
         ) : (
           <motion.div

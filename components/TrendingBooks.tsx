@@ -27,11 +27,12 @@ const itemVariants: Variants = {
 export default function TrendingBooks() {
   const [trending, setTrending] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showAllTrending, setShowAllTrending] = useState(false);
 
   useEffect(() => {
     async function load() {
       const data = await api.getBooks();
-      setTrending(data ? data.slice(0, 8) : []);
+      setTrending(data || []);
       setLoading(false);
     }
     load();
@@ -90,12 +91,44 @@ export default function TrendingBooks() {
           whileInView="visible"
           viewport={{ once: true, margin: "-50px" }}
         >
-          {trending.map(book => (
-            <motion.div key={book.id} variants={itemVariants}>
+          {(showAllTrending ? trending : trending.slice(0, 8)).map(book => (
+            <motion.div key={book.id} variants={itemVariants} style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
               <BookCard {...book} />
             </motion.div>
           ))}
         </motion.div>
+
+        {trending.length > 8 && (
+          <div style={{ textAlign: 'center', marginTop: '2.5rem' }}>
+            <button
+              onClick={() => setShowAllTrending(prev => !prev)}
+              style={{
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-primary)',
+                padding: '12px 28px',
+                borderRadius: '999px',
+                fontSize: '0.95rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.borderColor = 'var(--theme-color)';
+                e.currentTarget.style.background = 'var(--search-bg)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.borderColor = 'var(--border-color)';
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
+              }}
+            >
+              {showAllTrending ? "Kamroq ko'rsatish" : `Yana ko'rsatish (+${trending.length - 8})`}
+            </button>
+          </div>
+        )}
       </div>
     </section>
   );

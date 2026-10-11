@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Heart, Share2, BookOpen, Headphones, Package, Star } from 'lucide-react';
+import { Heart, Share2, BookOpen, Headphones, Package, Star, X, Send, MessageCircle, Copy, Check } from 'lucide-react';
 import styles from './page.module.css';
 
 type Favorite = { id: string; title: string; author: string; price: string; rating: number; image: string; category: string };
@@ -22,6 +22,8 @@ export default function BookActions({ book, recommended }: { book: Book; recomme
     const [isFav, setIsFav] = useState(false);
     const [expanded, setExpanded] = useState(false);
     const [toast, setToast] = useState('');
+    const [shareOpen, setShareOpen] = useState(false);
+    const [copied, setCopied] = useState(false);
 
     useEffect(() => {
         try {
@@ -76,21 +78,36 @@ export default function BookActions({ book, recommended }: { book: Book; recomme
         }
     }
 
-    async function shareBook() {
-        if (navigator.share) {
-            try {
-                await navigator.share({ title: book.title, text: book.description });
-            } catch { /* ignore */ }
+    function shareBook() {
+        // If native share is supported and available, try it; otherwise open share modal
+        const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+        if (navigator.share && window.location.protocol === 'https:') {
+            navigator.share({
+                title: book.title,
+                text: `${book.title} — ${book.author}`,
+                url: shareUrl,
+            }).catch(() => {});
         } else {
-            // fallback: copy to clipboard
-            try {
-                await navigator.clipboard.writeText(window.location.href);
-                setToast('Havola nusxalandi');
-                setTimeout(() => setToast(''), 2000);
-            } catch {
-                setToast('Havola nusxalanmadi');
-                setTimeout(() => setToast(''), 2000);
-            }
+            // Open direct share modal with Telegram, WhatsApp, Copy
+            setShareOpen(true);
+        }
+    }
+
+    async function handleCopyLink() {
+        const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+        try {
+            await navigator.clipboard.writeText(shareUrl);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch {
+            const textArea = document.createElement("textarea");
+            textArea.value = shareUrl;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
         }
     }
 
@@ -104,7 +121,8 @@ export default function BookActions({ book, recommended }: { book: Book; recomme
         setTimeout(() => setToast(''), 2000);
     }
 
-    const shortDesc = book.description.slice(0, 280);
+    const desc = book?.description || '';
+    const shortDesc = desc.slice(0, 280);
 
     return (
         <>
@@ -113,9 +131,9 @@ export default function BookActions({ book, recommended }: { book: Book; recomme
             <div className={styles.description}>
                 <h3>Kitob haqida</h3>
                 <p className={expanded ? styles.descExpanded : styles.descCollapsed}>
-                    {expanded ? book.description : shortDesc}{book.description.length > 280 && !expanded ? '...' : ''}
+                    {expanded ? desc : shortDesc}{desc.length > 280 && !expanded ? '...' : ''}
                 </p>
-                {book.description.length > 280 && (
+                {desc.length > 280 && (
                     <button className={styles.linkBtn} onClick={() => setExpanded((s) => !s)}>
                         {expanded ? 'Kamroq ko‘rsatish' : 'Batafsil o‘qish'}
                     </button>
@@ -151,7 +169,7 @@ export default function BookActions({ book, recommended }: { book: Book; recomme
                 </button>
             </div>
 
-            {recommended.length > 0 && (
+            {(recommended && recommended.length > 0) && (
                 <div className={styles.recommended}>
                     <h4>Shu kabi kitoblar</h4>
                     <div className={styles.recoGrid}>
@@ -164,6 +182,95 @@ export default function BookActions({ book, recommended }: { book: Book; recomme
                                 </div>
                             </Link>
                         ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Share Modal Dialog */}
+            {shareOpen && (
+                <div style={{
+                    position: 'fixed', inset: 0, zIndex: 9999,
+                    backgroundColor: 'rgba(0, 0, 0, 0.65)', backdropFilter: 'blur(8px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+                }} onClick={() => setShareOpen(false)}>
+                    <div style={{
+                        background: 'var(--card-bg, #141720)',
+                        border: '1px solid var(--card-border, rgba(255,255,255,0.1))',
+                        borderRadius: '20px', padding: '1.75rem', width: '100%', maxWidth: '380px',
+                        boxShadow: '0 20px 50px rgba(0,0,0,0.5)', position: 'relative'
+                    }} onClick={(e) => e.stopPropagation()}>
+                        
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                            <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                Kitobni ulashish
+                            </h3>
+                            <button onClick={() => setShareOpen(false)} style={{
+                                background: 'transparent', border: 'none', color: 'var(--text-secondary)',
+                                cursor: 'pointer', padding: '4px'
+                            }}>
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <p style={{ margin: '0 0 1.25rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                            <strong>{book.title}</strong> kitobini do&apos;stlaringiz bilan baham ko&apos;ring:
+                        </p>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                            {/* Telegram */}
+                            <a
+                                href={`https://t.me/share/url?url=${encodeURIComponent(typeof window !== 'undefined' ? window.location.href : '')}&text=${encodeURIComponent(`📚 "${book.title}" — ${book.author}\n\nKitobni mutolaa qilish uchun havola:`)}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                                    padding: '12px', background: '#229ED9', color: '#fff', borderRadius: '12px',
+                                    textDecoration: 'none', fontWeight: 600, fontSize: '0.9rem'
+                                }}
+                            >
+                                <Send size={18} /> Telegram
+                            </a>
+
+                            {/* WhatsApp */}
+                            <a
+                                href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`📚 "${book.title}" — ${book.author}\n${typeof window !== 'undefined' ? window.location.href : ''}`)}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                                    padding: '12px', background: '#25D366', color: '#fff', borderRadius: '12px',
+                                    textDecoration: 'none', fontWeight: 600, fontSize: '0.9rem'
+                                }}
+                            >
+                                <MessageCircle size={18} /> WhatsApp
+                            </a>
+                        </div>
+
+                        {/* Copy link bar */}
+                        <div style={{
+                            display: 'flex', alignItems: 'center', gap: '8px',
+                            background: 'var(--search-bg, #0d1117)', border: '1px solid var(--search-border, #30363d)',
+                            borderRadius: '12px', padding: '8px 12px'
+                        }}>
+                            <span style={{
+                                flex: 1, fontSize: '0.8rem', color: 'var(--text-secondary)',
+                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                            }}>
+                                {typeof window !== 'undefined' ? window.location.href : ''}
+                            </span>
+                            <button
+                                onClick={handleCopyLink}
+                                style={{
+                                    background: copied ? '#10b981' : 'var(--theme-color, #2563eb)',
+                                    color: '#fff', border: 'none', borderRadius: '8px',
+                                    padding: '6px 12px', fontSize: '0.8rem', fontWeight: 600,
+                                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px'
+                                }}
+                            >
+                                {copied ? <Check size={14} /> : <Copy size={14} />}
+                                {copied ? 'Nusxalandi' : 'Nusxalash'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

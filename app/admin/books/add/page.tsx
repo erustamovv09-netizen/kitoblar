@@ -3,9 +3,11 @@
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowLeft, BookOpen, Upload, Save, CheckCircle2, Link2, ImageIcon, X, Server, HardDrive } from 'lucide-react';
+import { ArrowLeft, BookOpen, Upload, Save, CheckCircle2, Link2, ImageIcon, X, Server, HardDrive, Star } from 'lucide-react';
+import { countChaptersInContent } from '@/app/lib/chapters';
+import { getApiBaseUrl } from '@/app/lib/api';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
+const getBase = () => getApiBaseUrl();
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop';
 const STATIC_CATEGORIES = ['Badiiy', 'Biznes', 'Ilmiy', 'Tarixiy', 'Detektiv', 'Bolalar adabiyoti', 'Jahon adabiyoti', 'Shaxsiy rivojlanish', 'Moliya', 'Falsafa', 'Psixologiya'];
 
@@ -33,6 +35,7 @@ export default function AddBookPage() {
     title: '', author: '', price: '', description: '',
     pages: '', language: "O'zbek tili", publishedYear: new Date().getFullYear().toString(),
     hasAudio: false, audioUrl: '', imageUrl: '', isWeeklyTop: false,
+    rating: '5.0',
     content: ''
   });
   const [imageMode, setImageMode] = useState<ImageMode>('url');
@@ -52,7 +55,7 @@ export default function AddBookPage() {
 
   // Fetch categories from Django backend
   useEffect(() => {
-    fetch(`${API_BASE}/categories/`, { signal: AbortSignal.timeout(3000) })
+    fetch(`${getBase()}/categories/`, { signal: AbortSignal.timeout(3000) })
       .then(r => r.json())
       .then((data: Category[]) => {
         if (Array.isArray(data) && data.length > 0) {
@@ -133,7 +136,8 @@ export default function AddBookPage() {
     setForm({
       title: '', author: '', price: '', description: '',
       pages: '', language: "O'zbek tili", publishedYear: new Date().getFullYear().toString(),
-      hasAudio: false, audioUrl: '', imageUrl: '', isWeeklyTop: false
+      hasAudio: false, audioUrl: '', imageUrl: '', isWeeklyTop: false,
+      rating: '5.0', content: ''
     });
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -159,9 +163,9 @@ export default function AddBookPage() {
         fd.append('pages', String(Number(form.pages) || 0));
         fd.append('language', form.language || "O'zbek tili");
         fd.append('year', form.publishedYear || String(new Date().getFullYear()));
-        fd.append('rating', '0');
+        fd.append('rating', String(parseFloat(form.rating) || 5.0));
         fd.append('is_weekly_top', form.isWeeklyTop ? 'true' : 'false');
-        fd.append('is_trending', 'true');
+        fd.append('is_trending', form.isWeeklyTop ? 'true' : 'false');
         fd.append('content', form.content || '');
 
         // Image: prefer actual file; for URL mode, try to fetch & re-upload
@@ -178,7 +182,7 @@ export default function AddBookPage() {
           }
         }
 
-        const response = await fetch(`${API_BASE}/books/`, {
+        const response = await fetch(`${getBase()}/books/`, {
           method: 'POST',
           body: fd,
           signal: AbortSignal.timeout(10000),
@@ -214,11 +218,12 @@ export default function AddBookPage() {
       id: Date.now().toString(),
       category: categoryName,
       price: form.price ? `${Number(form.price.replace(/\D/g, '')).toLocaleString('uz-UZ')} so'm` : "0 so'm",
-      rating: 0,
+      rating: parseFloat(form.rating) || 5.0,
       pages: Number(form.pages) || 0,
-      publishedYear: Number(form.publishedYear),
+      publishedYear: form.publishedYear || String(new Date().getFullYear()),
       image: imageForLocal,
       is_weekly_top: form.isWeeklyTop,
+      isWeeklyTop: form.isWeeklyTop,
     });
     localStorage.setItem('admin_books', JSON.stringify(updatedStored));
     setLoading(false);
@@ -314,12 +319,25 @@ export default function AddBookPage() {
                 <input style={inputStyle} placeholder="45000" value={form.price} onChange={e => set('price', e.target.value)} />
               </div>
               <div>
+                <label style={labelStyle}>⭐ Reyting (1.0 - 5.0)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="1"
+                  max="5"
+                  style={inputStyle}
+                  placeholder="5.0"
+                  value={form.rating}
+                  onChange={e => set('rating', e.target.value)}
+                />
+              </div>
+              <div>
                 <label style={labelStyle}>Sahifalar soni</label>
                 <input type="number" style={inputStyle} placeholder="320" value={form.pages} onChange={e => set('pages', e.target.value)} />
               </div>
               <div>
-                <label style={labelStyle}>Nashr yili</label>
-                <input type="number" style={inputStyle} placeholder="2024" value={form.publishedYear} onChange={e => set('publishedYear', e.target.value)} />
+                <label style={labelStyle}>Nashr yili / Nashriyot</label>
+                <input type="text" style={inputStyle} placeholder="2024 yoki 2024, Oltin Qalam" value={form.publishedYear} onChange={e => set('publishedYear', e.target.value)} />
               </div>
               <div>
                 <label style={labelStyle}>Til</label>
@@ -345,23 +363,22 @@ export default function AddBookPage() {
               <BookOpen size={18} style={{ color: 'var(--accent-blue)' }} />
               Kitob matni (o&apos;qish uchun)
             </h3>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-              O&apos;quvchilar o&apos;qishi uchun kitob matnini kiriting. Boblarni ajratish uchun:
-              <code style={{ background: 'rgba(79,142,247,0.1)', padding: '1px 6px', borderRadius: '4px', marginLeft: '4px', fontSize: '0.78rem', color: 'var(--accent-blue)' }}>--- Bob nomi ---</code>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: '1.5' }}>
+              O&apos;quvchilar o&apos;qishi uchun kitob matnini kiriting. Boblar sarlavhalari (masalan: <code style={{ background: 'rgba(79,142,247,0.1)', padding: '1px 6px', borderRadius: '4px', fontSize: '0.78rem', color: 'var(--accent-blue)' }}>MUQADDIMA</code>, <code style={{ background: 'rgba(79,142,247,0.1)', padding: '1px 6px', borderRadius: '4px', fontSize: '0.78rem', color: 'var(--accent-blue)' }}>BIRINCHI BOB</code>, <code style={{ background: 'rgba(79,142,247,0.1)', padding: '1px 6px', borderRadius: '4px', fontSize: '0.78rem', color: 'var(--accent-blue)' }}>--- 1-Bob ---</code>) avtomatik ravishda alohida boblarga ajratiladi.
             </p>
             <textarea
               style={{ ...inputStyle, minHeight: '300px', resize: 'vertical', fontFamily: 'monospace', fontSize: '0.85rem', lineHeight: '1.7' }}
-              placeholder={`--- 1-Bob: Muqaddima ---
-Bu yerda birinchi bob matni yoziladi...
+              placeholder={`MUQADDIMA
+Bu yerda muqaddima matni yoziladi...
 
---- 2-Bob: Asosiy qism ---
-Bu yerda ikkinchi bob matni yoziladi...`}
+BIRINCHI BOB
+Bu yerda birinchi bob matni yoziladi...`}
               value={form.content}
               onChange={e => set('content', e.target.value)}
             />
              {form.content && (
               <p style={{ fontSize: '0.78rem', color: '#10b981', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Server size={12} /> {form.content.split('\n').filter(l => l.trim().match(/^---.*---$/)).length || 1} ta bob aniqlandi · {form.content.length.toLocaleString()} belgi
+                <BookOpen size={13} /> {countChaptersInContent(form.content)} ta bob aniqlandi · {form.content.length.toLocaleString()} belgi
               </p>
             )}
 

@@ -26,7 +26,10 @@ import {
   BookMarked,
   MessageSquare,
   Lock,
-  Plus
+  Plus,
+  Share2,
+  Copy,
+  Quote as QuoteIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { booksDB } from '../lib/books';
@@ -36,7 +39,15 @@ import styles from './page.module.css';
 type Favorite = { id: string; title: string };
 type BookStatus = 'reading' | 'planned' | 'completed';
 type BookStatuses = { [bookId: string]: BookStatus };
-type Quote = { id: string; bookId: string; bookTitle: string; text: string };
+type Quote = { 
+    id: string; 
+    bookId: string; 
+    bookTitle: string; 
+    text: string;
+    page?: string;
+    date?: string;
+    tag?: string;
+};
 type Activity = { id: string; text: string; time: string; type: 'system' | 'user' | 'favorite' | 'goal' };
 
 const emojiAvatars = ['📚', '💡', '🚀', '😎', '🧠', '🎨', '📖', '🌟', '🦄', '🧙‍♂️', '🌙', '⚡', '🎭', '🧩', '🦋'];
@@ -85,6 +96,10 @@ export default function AccountPage() {
     // Form inputs for Quote
     const [quoteText, setQuoteText] = useState('');
     const [quoteBookId, setQuoteBookId] = useState('');
+    const [quotePageNum, setQuotePageNum] = useState('');
+    const [quoteTag, setQuoteTag] = useState('Dono fikr');
+    const [quoteCopiedId, setQuoteCopiedId] = useState<string | null>(null);
+    const [selectedBadge, setSelectedBadge] = useState<any | null>(null);
 
     const [errors, setErrors] = useState<{ name?: string; email?: string }>({});
     const [books, setBooks] = useState<any[]>([]);
@@ -331,7 +346,10 @@ export default function AccountPage() {
             id: String(Date.now()),
             bookId: quoteBookId,
             bookTitle,
-            text: quoteText.trim()
+            text: quoteText.trim(),
+            page: quotePageNum.trim() || undefined,
+            date: new Date().toLocaleDateString('uz-UZ', { day: 'numeric', month: 'short', year: 'numeric' }),
+            tag: quoteTag
         };
 
         const nextQuotes = [newQuote, ...quotes];
@@ -340,6 +358,7 @@ export default function AccountPage() {
         
         setQuoteText('');
         setQuoteBookId('');
+        setQuotePageNum('');
         logEvent(`"${bookTitle}" kitobidan yangi iqtibos saqlandi`, 'user');
         setSuccessMessage('Iqtibos muvaffaqiyatli saqlandi');
         setTimeout(() => setSuccessMessage(''), 2500);
@@ -350,6 +369,26 @@ export default function AccountPage() {
         setQuotes(nextQuotes);
         localStorage.setItem('book_quotes', JSON.stringify(nextQuotes));
         logEvent(`"${title}" kitobidan olingan iqtibos o'chirildi`, 'user');
+    }
+
+    function copyQuote(q: Quote) {
+        const pageInfo = q.page ? ` (${q.page}-bet)` : '';
+        const textToCopy = `«${q.text}»\n\n— "${q.bookTitle}"${pageInfo}\nKitoblar Portali`;
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            setQuoteCopiedId(q.id);
+            setTimeout(() => setQuoteCopiedId(null), 2000);
+        });
+    }
+
+    function shareQuote(q: Quote) {
+        const pageInfo = q.page ? ` (${q.page}-bet)` : '';
+        const text = `«${q.text}»\n\n— "${q.bookTitle}"${pageInfo}\nKitoblar Portali`;
+        if (navigator.share && window.location.protocol === 'https:') {
+            navigator.share({ title: `Iqtibos: ${q.bookTitle}`, text }).catch(() => {});
+        } else {
+            const tgUrl = `https://t.me/share/url?url=${encodeURIComponent(window.location.origin)}&text=${encodeURIComponent(text)}`;
+            window.open(tgUrl, '_blank');
+        }
     }
 
     function validate() {
@@ -438,9 +477,8 @@ export default function AccountPage() {
         };
     });
 
-    const recommendedBooks = activeBooksList
-        .filter(book => !favorites.some(fav => fav.id === book.id))
-        .slice(0, 4);
+    const weeklyBooks = activeBooksList.filter(book => Boolean(book.is_weekly_top || book.isWeeklyTop));
+    const recommendedBooks = weeklyBooks.length > 0 ? weeklyBooks : activeBooksList.slice(0, 1);
 
     // Reading goal progress percentage
     const goalProgress = dailyGoal > 0 ? Math.min(100, Math.round((todayProgress / dailyGoal) * 100)) : 0;
@@ -606,20 +644,31 @@ export default function AccountPage() {
 
                             {/* Achievements & Badges Widget */}
                             <div className={styles.achievementsPanel}>
-                                <span className={styles.accentTitle} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    <Award size={14} style={{ color: 'var(--user-accent)' }} />
-                                    Yutuqlar va Nishonlar
-                                </span>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                    <span className={styles.accentTitle} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <Award size={14} style={{ color: 'var(--user-accent)' }} />
+                                        Yutuqlar va Nishonlar
+                                    </span>
+                                    <span style={{ fontSize: '0.72rem', color: 'var(--user-accent)', fontWeight: 700 }}>
+                                        {getAchievements().filter(b => b.unlocked).length} / {getAchievements().length}
+                                    </span>
+                                </div>
                                 <div className={styles.badgeGrid}>
                                     {getAchievements().map(badge => (
                                         <div 
                                             key={badge.id} 
-                                            className={`${styles.badgeItem} ${!badge.unlocked ? styles.badgeLocked : ''}`}
-                                            title={`${badge.name}: ${badge.desc}`}
+                                            className={`${styles.badgeItem} ${!badge.unlocked ? styles.badgeLocked : styles.badgeUnlockedActive}`}
+                                            onClick={() => setSelectedBadge(badge)}
+                                            role="button"
+                                            tabIndex={0}
                                         >
                                             <span className={styles.badgeIcon}>{badge.icon}</span>
                                             <span className={styles.badgeName}>{badge.name}</span>
-                                            {!badge.unlocked && <Lock size={10} className={styles.badgeLockedIcon} />}
+                                            {!badge.unlocked ? (
+                                                <Lock size={10} className={styles.badgeLockedIcon} />
+                                            ) : (
+                                                <div style={{ position: 'absolute', top: '2px', right: '2px', width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
+                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -989,11 +1038,23 @@ export default function AccountPage() {
                                         transition={{ duration: 0.2 }}
                                         className={styles.glassCard}
                                     >
-                                        <h3 style={{ fontSize: '1.2rem', marginBottom: '1.25rem', fontWeight: 700 }}>Kitob iqtiboslari va Eslatmalar</h3>
+                                        <h3 style={{ fontSize: '1.2rem', marginBottom: '0.5rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <QuoteIcon size={20} style={{ color: 'var(--user-accent, var(--accent-blue))' }} />
+                                            Kitob iqtiboslari va Eslatmalar
+                                        </h3>
+                                        <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
+                                            Mutolaa davomida qalbingizga yoqqan dono satrlar va shaxsiy fikrlaringizni shu yerda to'plang.
+                                        </p>
                                         
                                         {/* Add Quote Form */}
-                                        <form className={styles.quoteForm} onSubmit={handleAddQuote}>
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.75rem' }}>
+                                        <form className={styles.quoteForm} onSubmit={handleAddQuote} style={{
+                                            background: 'rgba(255, 255, 255, 0.02)',
+                                            border: '1px solid var(--border-color)',
+                                            borderRadius: '16px',
+                                            padding: '1.25rem',
+                                            marginBottom: '2rem'
+                                        }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem', marginBottom: '0.75rem' }}>
                                                 <div className={styles.field}>
                                                     <label className={styles.fieldTitle}>Kitobni tanlang</label>
                                                     <select 
@@ -1008,46 +1069,178 @@ export default function AccountPage() {
                                                          ))}
                                                     </select>
                                                 </div>
+
                                                 <div className={styles.field}>
-                                                    <label className={styles.fieldTitle}>Iqtibos matni</label>
-                                                    <textarea 
-                                                        value={quoteText}
-                                                        onChange={(e) => setQuoteText(e.target.value)}
-                                                        placeholder="Sizga yoqqan ajoyib iqtibos yoki eslatma yozing..."
-                                                        className={styles.textareaField}
-                                                        required
+                                                    <label className={styles.fieldTitle}>Sahifa raqami (ixtiyoriy)</label>
+                                                    <input 
+                                                        type="text"
+                                                        value={quotePageNum}
+                                                        onChange={(e) => setQuotePageNum(e.target.value)}
+                                                        placeholder="Masalan: 45"
+                                                        className={styles.textField}
                                                     />
                                                 </div>
+
+                                                <div className={styles.field}>
+                                                    <label className={styles.fieldTitle}>Turi / Teg</label>
+                                                    <select
+                                                        value={quoteTag}
+                                                        onChange={(e) => setQuoteTag(e.target.value)}
+                                                        className={styles.selectField}
+                                                    >
+                                                        <option value="Dono fikr">💡 Dono fikr</option>
+                                                        <option value="Shaxsiy eslatma">✍️ Shaxsiy eslatma</option>
+                                                        <option value="Hayotiy saboq">🌟 Hayotiy saboq</option>
+                                                        <option value="Motivatsiya">🔥 Motivatsiya</option>
+                                                    </select>
+                                                </div>
                                             </div>
+
+                                            <div className={styles.field} style={{ marginBottom: '1rem' }}>
+                                                <label className={styles.fieldTitle}>Iqtibos matni</label>
+                                                <textarea 
+                                                    value={quoteText}
+                                                    onChange={(e) => setQuoteText(e.target.value)}
+                                                    placeholder="Sizga yoqqan ajoyib iqtibos yoki eslatmani yozing..."
+                                                    className={styles.textareaField}
+                                                    rows={3}
+                                                    required
+                                                />
+                                            </div>
+
                                             <button 
                                                 type="submit" 
                                                 className={`${styles.btn} ${styles.btnPrimary}`}
-                                                style={{ alignSelf: 'flex-start' }}
                                                 disabled={!quoteText.trim() || !quoteBookId}
+                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                                             >
-                                                <Plus size={16} /> Iqtibos saqlash
+                                                <Plus size={16} /> Iqtibosni saqlash
                                             </button>
                                         </form>
 
                                         {quotes.length === 0 ? (
                                             <div className={styles.emptyState}>
-                                                <MessageSquare size={48} className={styles.emptyIcon} />
-                                                <p>Sizda hali iqtiboslar yo'q. Kitoblardan olingan dono fikrlarni shu yerda to'plab boring!</p>
+                                                <div style={{
+                                                    width: '64px', height: '64px', borderRadius: '50%',
+                                                    background: 'rgba(59, 130, 246, 0.1)', display: 'flex',
+                                                    alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem',
+                                                    color: 'var(--user-accent, var(--accent-blue))'
+                                                }}>
+                                                    <MessageSquare size={32} />
+                                                </div>
+                                                <p style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                                                    Sizda hali iqtiboslar yo&apos;q
+                                                </p>
+                                                <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>
+                                                    Yuqoridagi shakl orqali sevimli kitoblaringizdan ajoyib fikrlarni saqlab boring!
+                                                </p>
                                             </div>
                                         ) : (
                                             <div className={styles.quotesList}>
                                                 {quotes.map(q => (
-                                                    <div key={q.id} className={styles.quoteCard}>
-                                                        <p className={styles.quoteText}>{q.text}</p>
-                                                        <div className={styles.quoteMeta}>
-                                                            <span className={styles.quoteBook}>{q.bookTitle}</span>
-                                                            <button 
-                                                                className={`${styles.btn} ${styles.btnDanger}`}
-                                                                style={{ padding: '4px 8px', fontSize: '0.75rem' }}
-                                                                onClick={() => removeQuote(q.id, q.bookTitle)}
-                                                            >
-                                                                O'chirish
-                                                            </button>
+                                                    <div key={q.id} className={styles.quoteCard} style={{
+                                                        background: 'var(--search-bg)',
+                                                        border: '1px solid var(--border-color)',
+                                                        borderRadius: '16px',
+                                                        padding: '1.25rem',
+                                                        position: 'relative'
+                                                    }}>
+                                                        {q.tag && (
+                                                            <div style={{
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '4px',
+                                                                fontSize: '0.75rem',
+                                                                fontWeight: 600,
+                                                                color: 'var(--user-accent, var(--accent-blue))',
+                                                                background: 'rgba(59, 130, 246, 0.1)',
+                                                                padding: '2px 8px',
+                                                                borderRadius: '6px',
+                                                                marginBottom: '0.75rem'
+                                                            }}>
+                                                                {q.tag}
+                                                            </div>
+                                                        )}
+                                                        <p className={styles.quoteText} style={{
+                                                            fontSize: '1.05rem',
+                                                            lineHeight: 1.6,
+                                                            color: 'var(--text-primary)',
+                                                            fontStyle: 'italic',
+                                                            marginBottom: '1rem'
+                                                        }}>
+                                                            &ldquo;{q.text}&rdquo;
+                                                        </p>
+                                                        <div className={styles.quoteMeta} style={{
+                                                            display: 'flex',
+                                                            justifyContent: 'space-between',
+                                                            alignItems: 'center',
+                                                            flexWrap: 'wrap',
+                                                            gap: '8px',
+                                                            paddingTop: '0.75rem',
+                                                            borderTop: '1px solid rgba(255, 255, 255, 0.05)'
+                                                        }}>
+                                                            <div>
+                                                                <span className={styles.quoteBook} style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                                    {q.bookTitle}
+                                                                </span>
+                                                                {q.page && (
+                                                                    <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginLeft: '6px' }}>
+                                                                        • {q.page}-bet
+                                                                    </span>
+                                                                )}
+                                                                {q.date && (
+                                                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginLeft: '6px', opacity: 0.7 }}>
+                                                                        ({q.date})
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                <button
+                                                                    onClick={() => copyQuote(q)}
+                                                                    title="Nusxalash"
+                                                                    style={{
+                                                                        background: 'rgba(255, 255, 255, 0.05)',
+                                                                        border: '1px solid var(--border-color)',
+                                                                        color: quoteCopiedId === q.id ? '#10b981' : 'var(--text-secondary)',
+                                                                        borderRadius: '8px',
+                                                                        padding: '6px 10px',
+                                                                        fontSize: '0.78rem',
+                                                                        cursor: 'pointer',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '4px'
+                                                                    }}
+                                                                >
+                                                                    {quoteCopiedId === q.id ? <Check size={14} /> : <Copy size={14} />}
+                                                                    {quoteCopiedId === q.id ? 'Nusxalandi' : 'Nusxalash'}
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => shareQuote(q)}
+                                                                    title="Telegram orqali ulashish"
+                                                                    style={{
+                                                                        background: 'rgba(34, 158, 217, 0.15)',
+                                                                        border: '1px solid rgba(34, 158, 217, 0.3)',
+                                                                        color: '#229ED9',
+                                                                        borderRadius: '8px',
+                                                                        padding: '6px 10px',
+                                                                        fontSize: '0.78rem',
+                                                                        cursor: 'pointer',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '4px'
+                                                                    }}
+                                                                >
+                                                                    <Share2 size={14} /> Ulashish
+                                                                </button>
+                                                                <button 
+                                                                    className={`${styles.btn} ${styles.btnDanger}`}
+                                                                    style={{ padding: '6px 10px', fontSize: '0.78rem' }}
+                                                                    onClick={() => removeQuote(q.id, q.bookTitle)}
+                                                                    title="O'chirish"
+                                                                >
+                                                                    <Trash2 size={14} />
+                                                                </button>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 ))}
@@ -1122,6 +1315,60 @@ export default function AccountPage() {
                         </section>
                     </div>
                 </motion.div>
+            )}
+
+            {/* Badge Detail Interactive Modal */}
+            {selectedBadge && (
+                <div 
+                    style={{
+                        position: 'fixed', inset: 0, zIndex: 9999,
+                        backgroundColor: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+                    }}
+                    onClick={() => setSelectedBadge(null)}
+                >
+                    <div 
+                        style={{
+                            background: 'var(--card-bg, #141720)',
+                            border: '1px solid var(--card-border, rgba(255,255,255,0.1))',
+                            borderRadius: '24px', padding: '2rem 1.75rem', width: '100%', maxWidth: '340px',
+                            textAlign: 'center', boxShadow: '0 25px 60px rgba(0,0,0,0.5)', position: 'relative'
+                        }}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div style={{
+                            width: '72px', height: '72px', borderRadius: '50%',
+                            background: selectedBadge.unlocked ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.05)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            margin: '0 auto 1rem', fontSize: '2.5rem',
+                            border: `2px solid ${selectedBadge.unlocked ? '#10b981' : 'rgba(255,255,255,0.1)'}`
+                        }}>
+                            {selectedBadge.icon}
+                        </div>
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
+                            {selectedBadge.name}
+                        </h3>
+                        <div style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '4px',
+                            fontSize: '0.78rem', fontWeight: 700, padding: '3px 10px', borderRadius: '99px',
+                            marginBottom: '1rem',
+                            background: selectedBadge.unlocked ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.12)',
+                            color: selectedBadge.unlocked ? '#10b981' : '#f87171'
+                        }}>
+                            {selectedBadge.unlocked ? '✓ Qo\'lga kiritilgan' : '🔒 Qulflangan'}
+                        </div>
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5, marginBottom: '1.5rem' }}>
+                            {selectedBadge.desc}
+                        </p>
+                        <button
+                            onClick={() => setSelectedBadge(null)}
+                            className={`${styles.btn} ${styles.btnPrimary}`}
+                            style={{ width: '100%' }}
+                        >
+                            Tushunarli
+                        </button>
+                    </div>
+                </div>
             )}
 
             <div className={styles.back}>

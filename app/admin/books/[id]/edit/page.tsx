@@ -3,8 +3,9 @@
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, BookOpen, Save, CheckCircle2, Link2, ImageIcon, Upload, X } from 'lucide-react';
+import { ArrowLeft, BookOpen, Save, CheckCircle2, Link2, ImageIcon, Upload, X, Server, HardDrive } from 'lucide-react';
 import { api, Book } from '../../../../lib/api';
+import { countChaptersInContent } from '@/app/lib/chapters';
 
 const CATEGORIES = ['Badiiy', 'Biznes', 'Ilmiy', 'Tarixiy', 'Detektiv', 'Bolalar adabiyoti', 'Jahon adabiyoti', 'Shaxsiy rivojlanish', 'Moliya', 'Falsafa', 'Psixologiya'];
 
@@ -33,14 +34,16 @@ export default function EditBookPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [savedToBackend, setSavedToBackend] = useState(false);
   const [error, setError] = useState('');
   const [imageMode, setImageMode] = useState<ImageMode>('url');
   const [previewUrl, setPreviewUrl] = useState('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
   const [form, setForm] = useState({
     title: '', author: '', category: 'Badiiy', price: '', description: '',
     pages: '', language: "O'zbek tili", publishedYear: new Date().getFullYear().toString(),
-    hasAudio: false, audioUrl: '', imageUrl: '', rating: '0', content: ''
+    hasAudio: false, audioUrl: '', imageUrl: '', rating: '0', isWeeklyTop: false, content: ''
   });
 
   useEffect(() => {
@@ -61,7 +64,8 @@ export default function EditBookPage() {
           hasAudio: b.hasAudio || false,
           audioUrl: b.audioUrl || '',
           imageUrl: b.image || b.imageUrl || '',
-          rating: String(b.rating || '0'),
+          rating: String(b.rating ?? '5.0'),
+          isWeeklyTop: Boolean(b.is_weekly_top || b.isWeeklyTop),
           content: b.content || '',
         });
         setPreviewUrl(b.image || b.imageUrl || '');
@@ -98,6 +102,7 @@ export default function EditBookPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setImageFile(file);
     if (!file.type.startsWith('image/')) {
       setError("Faqat rasm fayllari qabul qilinadi (JPG, PNG, WEBP...)");
       return;
@@ -117,6 +122,7 @@ export default function EditBookPage() {
   };
 
   const clearImage = () => {
+    setImageFile(null);
     setPreviewUrl('');
     set('imageUrl', '');
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -136,25 +142,31 @@ export default function EditBookPage() {
       return;
     }
     setSaving(true);
-    await new Promise(r => setTimeout(r, 800));
-    // Save edited version to localStorage (demo)
-    const stored: any[] = JSON.parse(localStorage.getItem('admin_books') || '[]');
-    const existingIdx = stored.findIndex(b => b.id === bookId);
-    const updated = {
-      id: bookId,
-      ...form,
+
+    const numericPrice = Number(form.price.replace(/\D/g, '')) || 0;
+    const payload = {
+      title: form.title.trim(),
+      author: form.author.trim(),
+      category: form.category || 'Badiiy',
+      price: form.price ? `${numericPrice.toLocaleString('uz-UZ')} so'm` : "0 so'm",
+      description: form.description,
       pages: Number(form.pages) || 0,
-      publishedYear: Number(form.publishedYear),
-      rating: Number(form.rating) || 0,
+      language: form.language || "O'zbek tili",
+      year: form.publishedYear || '2024',
+      publishedYear: form.publishedYear || '2024',
+      rating: parseFloat(form.rating) || 5.0,
+      hasAudio: form.hasAudio,
+      audioUrl: form.audioUrl,
+      imageUrl: form.imageUrl,
       image: form.imageUrl || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop',
       content: form.content || '',
+      is_weekly_top: form.isWeeklyTop,
+      isWeeklyTop: form.isWeeklyTop,
+      is_trending: form.isWeeklyTop,
     };
-    if (existingIdx >= 0) {
-      stored[existingIdx] = updated;
-    } else {
-      stored.unshift(updated);
-    }
-    localStorage.setItem('admin_books', JSON.stringify(stored));
+
+    const res = await api.updateBook(bookId, payload, imageFile);
+    setSavedToBackend(res.fromBackend);
     setSaving(false);
     setSuccess(true);
   };
@@ -192,6 +204,17 @@ export default function EditBookPage() {
           <CheckCircle2 size={44} style={{ color: '#10b981' }} />
         </div>
         <h2 style={{ fontSize: '1.6rem', fontWeight: 800 }}>O&apos;zgarishlar saqlandi!</h2>
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: '8px',
+          padding: '8px 16px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 600,
+          background: savedToBackend ? 'rgba(16,185,129,0.1)' : 'rgba(79,142,247,0.1)',
+          color: savedToBackend ? '#10b981' : 'var(--accent-blue)',
+          border: `1px solid ${savedToBackend ? 'rgba(16,185,129,0.3)' : 'rgba(79,142,247,0.3)'}`
+        }}>
+          {savedToBackend
+            ? <><Server size={15} /> Backend bazasiga saqlandi (Telefon va barcha qurilmalarda yangilandi!)</>
+            : <><HardDrive size={15} /> Lokal xotirada saqlandi</>}
+        </div>
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
           <button onClick={() => setSuccess(false)} style={{ padding: '10px 20px', background: 'var(--search-bg)', border: '1px solid var(--border-color)', borderRadius: '10px', color: 'var(--text-primary)', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
             Davom ettirish
@@ -253,8 +276,8 @@ export default function EditBookPage() {
                 <input type="number" style={inputStyle} placeholder="320" value={form.pages} onChange={e => set('pages', e.target.value)} />
               </div>
               <div>
-                <label style={labelStyle}>Nashr yili</label>
-                <input type="number" style={inputStyle} placeholder="2024" value={form.publishedYear} onChange={e => set('publishedYear', e.target.value)} />
+                <label style={labelStyle}>Nashr yili / Nashriyot</label>
+                <input type="text" style={inputStyle} placeholder="2024 yoki 2024, Oltin Qalam" value={form.publishedYear} onChange={e => set('publishedYear', e.target.value)} />
               </div>
               <div>
                 <label style={labelStyle}>Til</label>
@@ -280,19 +303,22 @@ export default function EditBookPage() {
               <BookOpen size={18} style={{ color: 'var(--accent-blue)' }} />
               Kitob matni (o&apos;qish uchun)
             </h3>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-              O&apos;quvchilar o&apos;qishi uchun kitob matnini kiriting. Boblarni ajratish uchun <code style={{ background: 'rgba(79,142,247,0.1)', padding: '1px 6px', borderRadius: '4px', color: 'var(--accent-blue)' }}>--- Bob nomi ---</code> ishlating.
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: '1.5' }}>
+              O&apos;quvchilar o&apos;qishi uchun kitob matnini kiriting. Boblar sarlavhalari (masalan: <code style={{ background: 'rgba(79,142,247,0.1)', padding: '1px 6px', borderRadius: '4px', color: 'var(--accent-blue)' }}>MUQADDIMA</code>, <code style={{ background: 'rgba(79,142,247,0.1)', padding: '1px 6px', borderRadius: '4px', color: 'var(--accent-blue)' }}>BIRINCHI BOB</code>, <code style={{ background: 'rgba(79,142,247,0.1)', padding: '1px 6px', borderRadius: '4px', color: 'var(--accent-blue)' }}>--- 1-Bob ---</code>) avtomatik ravishda alohida boblarga ajratiladi.
             </p>
             <textarea
               style={{ ...inputStyle, minHeight: '300px', resize: 'vertical', fontFamily: 'monospace', fontSize: '0.85rem', lineHeight: '1.7' }}
-              placeholder={`--- 1-Bob: Muqaddima ---
+              placeholder={`MUQADDIMA
+Bu yerda matn...
+
+BIRINCHI BOB
 Bu yerda matn...`}
               value={form.content}
               onChange={e => set('content', e.target.value)}
             />
             {form.content && (
               <p style={{ fontSize: '0.78rem', color: '#10b981', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                📖 {form.content.split('\n').filter((l: string) => l.trim().match(/^---.*---$/)).length || 1} ta bob · {form.content.length.toLocaleString()} belgi
+                <BookOpen size={13} /> {countChaptersInContent(form.content)} ta bob aniqlandi · {form.content.length.toLocaleString()} belgi
               </p>
             )}
             {/* TXT fayl yuklash */}
@@ -449,6 +475,58 @@ Bu yerda matn...`}
                 <input style={inputStyle} placeholder="https://..." value={form.audioUrl} onChange={e => set('audioUrl', e.target.value)} />
               </div>
             )}
+          </div>
+
+          {/* Weekly Top */}
+          <div style={{
+            background: form.isWeeklyTop
+              ? 'linear-gradient(135deg, rgba(250,204,21,0.08), rgba(251,146,60,0.08))'
+              : 'var(--card-bg)',
+            border: form.isWeeklyTop
+              ? '1.5px solid rgba(250,204,21,0.4)'
+              : '1px solid var(--card-border)',
+            borderRadius: '16px', padding: '1.5rem', backdropFilter: 'blur(8px)',
+            transition: 'all 0.3s'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '1.25rem' }}>⭐</span>
+                  <h3 style={{ fontWeight: 700, fontSize: '1rem', margin: 0 }}>Hafta kitobi</h3>
+                  {form.isWeeklyTop && (
+                    <span style={{
+                      fontSize: '0.7rem', fontWeight: 700, padding: '2px 8px',
+                      background: 'rgba(250,204,21,0.15)', color: '#fbbf24',
+                      borderRadius: '20px', border: '1px solid rgba(250,204,21,0.3)',
+                      letterSpacing: '0.04em'
+                    }}>FAOL</span>
+                  )}
+                </div>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.83rem', margin: 0 }}>
+                  Bosh sahifada &ldquo;Hafta kitobi&rdquo; sifatida ko&apos;rsatiladi
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => set('isWeeklyTop', !form.isWeeklyTop)}
+                style={{
+                  position: 'relative', width: '52px', height: '28px',
+                  borderRadius: '14px', border: 'none', cursor: 'pointer',
+                  background: form.isWeeklyTop
+                    ? 'linear-gradient(135deg, #f59e0b, #ef4444)'
+                    : 'var(--border-color)',
+                  transition: 'background 0.3s', flexShrink: 0
+                }}
+              >
+                <div style={{
+                  position: 'absolute', top: '3px',
+                  left: form.isWeeklyTop ? '27px' : '3px',
+                  width: '22px', height: '22px', borderRadius: '50%',
+                  background: '#fff', transition: 'left 0.25s',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                }} />
+              </button>
+            </div>
           </div>
 
           {error && (

@@ -30,8 +30,8 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
-      const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || `http://${host}:8000/api`;
+      const host = typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1';
+      const baseUrl = `http://${host}:8000/api`;
       const res = await fetch(`${baseUrl}/auth/login/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -54,7 +54,7 @@ export default function LoginPage() {
         }));
       }
       window.dispatchEvent(new Event('auth-changed'));
-      router.push('/account');
+      router.push('/');
     } catch (err: any) {
       setError(err.message || 'Xatolik yuz berdi');
     } finally {
@@ -119,7 +119,15 @@ export default function LoginPage() {
           </div>
 
           <div className={styles.field}>
-            <label className={styles.label} htmlFor="login-password">Parol</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label className={styles.label} htmlFor="login-password">Parol</label>
+              <Link 
+                href="/forgot-password" 
+                style={{ fontSize: '0.82rem', color: 'var(--theme-color, var(--accent-blue))', textDecoration: 'none', fontWeight: 600 }}
+              >
+                Parolni unutdingizmi?
+              </Link>
+            </div>
             <div className={styles.inputWrapper}>
               <Lock size={18} className={styles.inputIcon} />
               <input

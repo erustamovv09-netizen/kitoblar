@@ -2,8 +2,15 @@ import booksDB from './books';
 import { mockDB, Review, ReadingProgress, Activity } from './db';
 
 
-// Backend API URL can be configured using environment variables
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api";
+// Dynamic API URL: adapts to localhost, mobile IP, or configured environment
+export const getApiBaseUrl = (): string => {
+  if (typeof window !== 'undefined' && window.location.hostname) {
+    return `http://${window.location.hostname}:8000/api`;
+  }
+  return process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api";
+};
+// Helper to always resolve the current API URL
+const getBase = () => getApiBaseUrl();
 
 export interface Book {
   id: string;
@@ -16,9 +23,12 @@ export interface Book {
   description: string;
   pages: number;
   language: string;
-  publishedYear: number;
+  publishedYear: number | string;
   hasAudio?: boolean;
   audioUrl?: string;
+  content?: string;
+  is_weekly_top?: boolean;
+  isWeeklyTop?: boolean;
 }
 
 // Utility to handle fetch requests with a timeout and automatic mock fallback
@@ -27,7 +37,7 @@ async function fetchWithFallback<T>(
   options: RequestInit = {},
   fallbackValue: T
 ): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint}`;
+  const url = `${getApiBaseUrl()}${endpoint}`;
 
   // Create controller to implement timeout (e.g., 2 seconds)
   const controller = new AbortController();
@@ -57,8 +67,49 @@ async function fetchWithFallback<T>(
   }
 }
 
+export function formatPublishedYear(year: any, title?: string, id?: string): string | number {
+  if (!year) year = 2024;
+  const str = String(year).trim();
+  const titleLower = String(title || '').toLowerCase();
+
+  // If already formatted with a publisher, keep it
+  if (str.includes(',') || str.includes('/') || str.toLowerCase().includes('nashr') || str.toLowerCase().includes('qalam')) {
+    return str;
+  }
+
+  const yearDigits = str.match(/\d{4}/)?.[0] || '2024';
+
+  if (titleLower.includes('binafsha') || String(id) === '1') {
+    return `${yearDigits}, Falaq nashr`;
+  } else if (titleLower.includes('odam') || titleLower.includes('qiyin') || String(id) === '2') {
+    return `${yearDigits}, Sharq nashriyoti`;
+  } else if (titleLower.includes('harom') || titleLower.includes('ko‘z') || titleLower.includes("ko'z") || String(id) === '3') {
+    return `${yearDigits}, Oltin Qalam`;
+  } else if (titleLower.includes('arosat') || String(id) === '4') {
+    return `${yearDigits}, Huzur Nashriyoti`;
+  } else if (titleLower.includes('alkimyogar')) {
+    return `${yearDigits}, Yangi asr avlodi`;
+  }
+
+  return str;
+}
+
 function mapDjangoBookToBook(djangoBook: any): Book {
   if (!djangoBook) return djangoBook;
+  const isAudio =
+    djangoBook.hasAudio !== undefined ? Boolean(djangoBook.hasAudio) :
+    djangoBook.has_audio !== undefined ? Boolean(djangoBook.has_audio) :
+    Boolean(djangoBook.audio_file || djangoBook.audio_url || djangoBook.audioUrl) ||
+    String(djangoBook.id) === '1' ||
+    String(djangoBook.id) === '2' ||
+    (typeof djangoBook.title === 'string' && (djangoBook.title.toLowerCase().includes('odam') || djangoBook.title.toLowerCase().includes('alkimyogar')));
+
+  const resolvedAudioUrl =
+    djangoBook.audioUrl ||
+    djangoBook.audio_url ||
+    djangoBook.audio_file ||
+    (isAudio ? 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' : '');
+
   return {
     id: String(djangoBook.id),
     title: djangoBook.title,
@@ -72,10 +123,12 @@ function mapDjangoBookToBook(djangoBook: any): Book {
     description: djangoBook.description || '',
     pages: Number(djangoBook.pages) || 0,
     language: djangoBook.language || "O'zbek tili",
-    publishedYear: Number(djangoBook.year) || Number(djangoBook.publishedYear) || 2024,
-    hasAudio: djangoBook.hasAudio !== undefined ? !!djangoBook.hasAudio : String(djangoBook.id) === '1',
-    audioUrl: djangoBook.audioUrl || (String(djangoBook.id) === '1' ? 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' : ''),
+    publishedYear: formatPublishedYear(djangoBook.year || djangoBook.publishedYear, djangoBook.title, djangoBook.id),
+    hasAudio: isAudio,
+    audioUrl: resolvedAudioUrl,
     content: djangoBook.content || '',
+    is_weekly_top: Boolean(djangoBook.is_weekly_top || djangoBook.isWeeklyTop),
+    isWeeklyTop: Boolean(djangoBook.is_weekly_top || djangoBook.isWeeklyTop),
   } as any;
 }
 
@@ -118,7 +171,7 @@ export const api = {
     let fromBackend = false;
     let raw: any[] = [];
     try {
-      const res = await fetch(`${API_BASE_URL}/books/`, {
+      const res = await fetch(`${getBase()}/books/`, {
         signal: AbortSignal.timeout(2000),
       });
       if (res.ok) {
@@ -145,7 +198,12 @@ export const api = {
       return filtered.map(book => {
         const edit = localEdits[book.id];
         if (!edit) return book;
-        return { ...book, ...edit, id: book.id };
+        return {
+          ...book,
+          ...edit,
+          id: book.id,
+          publishedYear: formatPublishedYear(edit.publishedYear || book.publishedYear, edit.title || book.title, book.id),
+        };
       });
     }
 
@@ -165,9 +223,12 @@ export const api = {
         description: e.description || '',
         pages: Number(e.pages) || 0,
         language: e.language || "O'zbek tili",
-        publishedYear: Number(e.publishedYear) || 2024,
+        publishedYear: e.publishedYear || e.year || 2024,
         hasAudio: !!e.hasAudio,
         audioUrl: e.audioUrl || '',
+        content: e.content || '',
+        is_weekly_top: Boolean(e.is_weekly_top || e.isWeeklyTop),
+        isWeeklyTop: Boolean(e.is_weekly_top || e.isWeeklyTop),
       } as Book));
 
     if (Object.keys(localEdits).length === 0) return [...filtered, ...localOnlyBooks];
@@ -183,12 +244,12 @@ export const api = {
 
 
   async getBook(id: string): Promise<Book | null> {
-    // First check locally-created admin books (Date.now() IDs)
+    // First check locally-created admin books (local_ IDs only)
     if (typeof window !== 'undefined') {
       try {
         const adminBooks: any[] = JSON.parse(localStorage.getItem('admin_books') || '[]');
         const localBook = adminBooks.find((b: any) => String(b.id) === String(id));
-        if (localBook) {
+        if (localBook && String(localBook.id).startsWith('local_')) {
           return {
             id: String(localBook.id),
             title: localBook.title || '',
@@ -200,10 +261,12 @@ export const api = {
             description: localBook.description || '',
             pages: Number(localBook.pages) || 0,
             language: localBook.language || "O'zbek tili",
-            publishedYear: Number(localBook.publishedYear) || 2024,
+            publishedYear: localBook.publishedYear || localBook.year || 2024,
             hasAudio: !!localBook.hasAudio,
             audioUrl: localBook.audioUrl || '',
             content: localBook.content || '',
+            is_weekly_top: Boolean(localBook.is_weekly_top || localBook.isWeeklyTop),
+            isWeeklyTop: Boolean(localBook.is_weekly_top || localBook.isWeeklyTop),
           } as any;
         }
       } catch { }
@@ -219,19 +282,19 @@ export const api = {
     if (edit) {
       return {
         ...book,
-        title: edit.title ?? book.title,
-        author: edit.author ?? book.author,
-        category: edit.category ?? book.category,
-        price: edit.price ?? book.price,
-        description: edit.description ?? book.description,
+        title: edit.title || book.title,
+        author: edit.author || book.author,
+        category: edit.category || book.category,
+        price: edit.price || book.price,
+        description: edit.description || book.description,
         pages: edit.pages != null ? Number(edit.pages) : book.pages,
-        language: edit.language ?? book.language,
-        publishedYear: edit.publishedYear != null ? Number(edit.publishedYear) : book.publishedYear,
+        language: edit.language || book.language,
+        publishedYear: formatPublishedYear(edit.publishedYear || book.publishedYear, edit.title || book.title, book.id),
         rating: edit.rating != null ? Number(edit.rating) : book.rating,
         hasAudio: edit.hasAudio != null ? !!edit.hasAudio : book.hasAudio,
-        audioUrl: edit.audioUrl ?? book.audioUrl,
+        audioUrl: edit.audioUrl || book.audioUrl,
         content: edit.content || (book as any).content || '',
-        // Most important: use uploaded/edited image
+        // Most important: use uploaded/edited image if non-empty
         image: edit.image || edit.imageUrl || book.image,
       };
     }
@@ -264,7 +327,7 @@ export const api = {
     }
     // Try backend DELETE
     try {
-      const response = await fetch(`${API_BASE_URL}/books/${id}/`, {
+      const response = await fetch(`${getBase()}/books/${id}/`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         signal: AbortSignal.timeout(3000),
@@ -289,10 +352,12 @@ export const api = {
       language: data.language,
       year: data.publishedYear,
       hasAudio: data.hasAudio,
+      has_audio: data.hasAudio,
       audioUrl: data.audioUrl,
+      audio_url: data.audioUrl,
     };
     try {
-      const response = await fetch(`${API_BASE_URL}/books/`, {
+      const response = await fetch(`${getBase()}/books/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -322,31 +387,132 @@ export const api = {
     return { success: false, fromBackend: false };
   },
 
+  // Update a book — sends backend PATCH, also syncs localStorage
+  async updateBook(id: string, data: any, imageFile?: File | null): Promise<{ success: boolean; fromBackend: boolean }> {
+    let fromBackend = false;
+
+    // 1. Try backend PATCH
+    try {
+      const url = `${getBase()}/books/${id}/`;
+      let res: Response;
+      const patchData = {
+        ...data,
+        has_audio: data.hasAudio !== undefined ? data.hasAudio : data.has_audio,
+        audio_url: data.audioUrl !== undefined ? data.audioUrl : data.audio_url,
+      };
+      if (imageFile) {
+        const fd = new FormData();
+        Object.entries(patchData).forEach(([k, v]) => {
+          if (v !== undefined && v !== null) fd.append(k, String(v));
+        });
+        fd.append('cover_image', imageFile);
+        res = await fetch(url, { method: 'PATCH', body: fd, signal: AbortSignal.timeout(6000) });
+      } else {
+        res = await fetch(url, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(patchData),
+          signal: AbortSignal.timeout(6000),
+        });
+      }
+
+      if (res.ok) {
+        fromBackend = true;
+      }
+    } catch { }
+
+    // 2. Also sync to localStorage
+    if (typeof window !== 'undefined') {
+      try {
+        const stored: any[] = JSON.parse(localStorage.getItem('admin_books') || '[]');
+        const idx = stored.findIndex(b => String(b.id) === String(id));
+        const updated = {
+          ...(idx >= 0 ? stored[idx] : {}),
+          ...data,
+          id: String(id),
+        };
+        if (data.is_weekly_top || data.isWeeklyTop) {
+          stored.forEach((b: any) => {
+            if (String(b.id) !== String(id)) {
+              b.is_weekly_top = false;
+              b.isWeeklyTop = false;
+            }
+          });
+        }
+        if (idx >= 0) {
+          stored[idx] = updated;
+        } else {
+          stored.unshift(updated);
+        }
+        localStorage.setItem('admin_books', JSON.stringify(stored));
+      } catch { }
+    }
+
+    return { success: true, fromBackend };
+  },
 
   // ── Reviews APIs ──────────────────────────────────────────────────────
   async getReviews(bookId: string): Promise<Review[]> {
     const localReviews = await mockDB.getReviews(bookId);
-    return fetchWithFallback<Review[]>(`/books/${bookId}/reviews/`, { method: 'GET' }, localReviews);
+    const backendData = await fetchWithFallback<any[]>(`/books/${bookId}/reviews/`, { method: 'GET' }, localReviews);
+    if (Array.isArray(backendData)) {
+      const mapped: Review[] = backendData.map((r: any) => ({
+        id: String(r.id),
+        bookId: String(r.book || r.bookId || bookId),
+        userName: r.user_name || r.userName || 'Kitobxon',
+        rating: Number(r.rating) || 5,
+        comment: r.comment || '',
+        createdAt: r.created_at || r.createdAt || new Date().toISOString(),
+      }));
+      // Merge with local storage reviews so freshly added reviews never disappear
+      const combined = [...mapped];
+      for (const loc of localReviews) {
+        if (!combined.some(c => String(c.id) === String(loc.id) || (c.userName === loc.userName && c.rating === loc.rating && c.comment === loc.comment))) {
+          combined.push(loc);
+        }
+      }
+      return combined;
+    }
+    return localReviews;
   },
 
   async addReview(bookId: string, review: Omit<Review, 'id' | 'createdAt'>): Promise<Review> {
-    const url = `${API_BASE_URL}/books/${bookId}/reviews/`;
+    const url = `${getBase()}/books/${bookId}/reviews/`;
+    // Always persist to local storage first as guarantee
+    const localResult = await mockDB.addReview(bookId, review);
+
+    const payload = {
+      book: Number(bookId) || bookId,
+      user_name: review.userName,
+      userName: review.userName,
+      user_id: review.userName,
+      userId: review.userName,
+      rating: review.rating,
+      comment: review.comment || '',
+    };
+
     try {
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(review),
+        body: JSON.stringify(payload),
       });
-      if (!response.ok) throw new Error(`Status ${response.status}`);
-      const data = await response.json();
+      if (response.ok) {
+        const data = await response.json();
+        mockDB.logEvent(`"${review.userName}" tomonidan kitobga ${review.rating} ballik sharh qoldirildi`, 'user');
+        return {
+          id: String(data.id),
+          bookId: String(data.book || bookId),
+          userName: data.user_name || review.userName,
+          rating: Number(data.rating) || review.rating,
+          comment: data.comment || review.comment || '',
+          createdAt: data.created_at || localResult.createdAt,
+        };
+      }
+    } catch { }
 
-      // Sync local storage activity log
-      mockDB.logEvent(`"${review.userName}" tomonidan kitobga ${review.rating} ballik sharh qoldirildi`, 'user');
-      return data as Review;
-    } catch (error) {
-      // fallback to mock storage without logging warning
-      return mockDB.addReview(bookId, review);
-    }
+    mockDB.logEvent(`"${review.userName}" tomonidan kitobga ${review.rating} ballik sharh qoldirildi`, 'user');
+    return localResult;
   },
 
   // ── Reading Progress APIs ─────────────────────────────────────────────
@@ -358,7 +524,7 @@ export const api = {
   },
 
   async saveReadingProgress(bookId: string, percent: number, chapter: string, page: number): Promise<void> {
-    const url = `${API_BASE_URL}/books/${bookId}/progress/`;
+    const url = `${getBase()}/books/${bookId}/progress/`;
     let userId = 'anonymous';
     if (typeof window !== 'undefined') userId = localStorage.getItem('username') || 'anonymous';
 
@@ -392,7 +558,7 @@ export const api = {
   },
 
   async logEvent(text: string, type: 'system' | 'user' | 'favorite' | 'goal'): Promise<void> {
-    const url = `${API_BASE_URL}/activity/`;
+    const url = `${getBase()}/activity/`;
     try {
       await fetch(url, {
         method: 'POST',

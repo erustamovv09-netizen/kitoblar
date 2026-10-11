@@ -218,8 +218,10 @@
 }
 
 .accentDot {
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    aspect-ratio: 1 / 1;
     border-radius: 50%;
     cursor: pointer;
     border: 2px solid transparent;
@@ -254,32 +256,49 @@
 .badgeItem {
     background: var(--search-bg);
     border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 6px;
+    border-radius: 10px;
+    padding: 8px 6px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     position: relative;
-    cursor: help;
-    transition: all 0.2s ease;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.badgeItem:hover {
+    transform: translateY(-2px);
+    border-color: var(--user-accent, var(--accent-blue));
+}
+
+.badgeUnlockedActive {
+    background: rgba(16, 185, 129, 0.05);
+    border-color: rgba(16, 185, 129, 0.25);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.08);
+}
+
+.badgeUnlockedActive:hover {
+    border-color: #10b981;
+    box-shadow: 0 6px 18px rgba(16, 185, 129, 0.2);
 }
 
 .badgeIcon {
-    font-size: 1.3rem;
-    margin-bottom: 2px;
+    font-size: 1.4rem;
+    margin-bottom: 3px;
 }
 
 .badgeName {
-    font-size: 0.65rem;
-    color: var(--text-secondary);
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--text-primary);
     text-align: center;
     line-height: 1.1;
 }
 
 .badgeLocked {
     filter: grayscale(1);
-    opacity: 0.4;
+    opacity: 0.35;
 }
 
 .badgeLockedIcon {

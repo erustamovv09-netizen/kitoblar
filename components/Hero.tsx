@@ -14,22 +14,28 @@ export default function Hero() {
 
   useEffect(() => {
     async function load() {
-      // First check admin_books in localStorage for a weekly top pick
+      // 1. First check admin_books in localStorage for an explicit weekly top pick
       try {
         const adminBooks = JSON.parse(localStorage.getItem('admin_books') || '[]');
-        const adminWeekly = adminBooks.find((b: any) => b.is_weekly_top || b.isWeeklyTop);
+        const adminWeekly = adminBooks.find((b: any) => b.is_weekly_top === true || b.isWeeklyTop === true);
         if (adminWeekly) {
           setHeroBook(adminWeekly);
           return;
         }
       } catch {}
 
-      // Fall back to API books
+      // 2. Fall back to API books — ONLY pick if explicitly flagged as weekly top!
       const books = await api.getBooks();
       if (books && books.length > 0) {
-        const top = books.find(b => (b as any).is_weekly_top || (b as any).is_trending) || books[0];
-        setHeroBook(top);
+        const top = books.find(b => (b as any).is_weekly_top === true || (b as any).isWeeklyTop === true);
+        if (top) {
+          setHeroBook(top);
+          return;
+        }
       }
+
+      // If no book has weekly top enabled, show default classic hero ("O'tkan kunlar")
+      setHeroBook(null);
     }
     load();
   }, []);
@@ -37,7 +43,7 @@ export default function Hero() {
   const bookTitle  = heroBook ? heroBook.title : "O'tkan kunlar";
   const bookAuthor = heroBook ? `Muallif: ${heroBook.author}` : "Muallif: Abdulla Qodiriy";
   const bookDesc   = heroBook ? heroBook.description : "O'zbek adabiyotidagi birinchi roman. Asarda XIX asr o'rtalaridagi Toshkent va Qo'qon hayoti, muhabbat va xiyonat, qahramonlik va fojia tasvirlangan.";
-  const bookLink   = heroBook ? `/book/${heroBook.id}` : "/book/hero";
+  const bookLink   = heroBook ? `/book/${heroBook.id}` : "/book/1";
   const bookImage  = heroBook ? heroBook.image : "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop";
 
   const isLong = bookDesc.length > MAX_CHARS;

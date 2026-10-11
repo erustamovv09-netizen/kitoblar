@@ -51,9 +51,10 @@ export default function BookCard({ id, title, author, price, rating, image, cate
     }
   }
   return (
-    <Link href={`/book/${id}`} style={{ display: 'block' }}>
+    <Link href={`/book/${id}`} style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', textDecoration: 'none' }}>
       <motion.div
         className={styles.card}
+        style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}
         whileHover={{
           scale: 1.03,
           y: -10,

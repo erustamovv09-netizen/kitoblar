@@ -258,9 +258,18 @@
 
 @media (max-width: 480px) {
   .container {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+    padding: 1.5rem 1rem;
+  }
+  .statCard {
+    padding: 1rem 0.5rem;
+  }
+  .statValue {
+    font-size: 1.5rem;
   }
   .teamGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
   }
 }

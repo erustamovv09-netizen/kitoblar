@@ -54,8 +54,8 @@ export default function RegisterPage() {
     setLoading(true);
     
     try {
-      const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || `http://${host}:8000/api`;
+      const host = typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1';
+      const baseUrl = `http://${host}:8000/api`;
       const res = await fetch(`${baseUrl}/auth/register/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -76,7 +76,7 @@ export default function RegisterPage() {
         year: 'numeric', month: 'long', day: 'numeric'
       }));
       window.dispatchEvent(new Event('auth-changed'));
-      router.push('/account');
+      router.push('/');
     } catch (err: any) {
       setError(err.message || 'Xatolik yuz berdi');
     } finally {

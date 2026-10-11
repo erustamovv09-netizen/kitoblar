@@ -24,40 +24,19 @@ export default function BookDetails() {
     if (!id) return;
     async function load() {
       setLoading(true);
-      // 1. Check localStorage admin_books first (locally added books)
+      // Load book details and recommended books via API
       try {
-        const adminBooks: any[] = JSON.parse(localStorage.getItem('admin_books') || '[]');
-        const localBook = adminBooks.find((b: any) => String(b.id) === String(id));
-        if (localBook) {
-          const mapped: Book = {
-            id: String(localBook.id),
-            title: localBook.title || '',
-            author: localBook.author || '',
-            price: localBook.price || "0 so'm",
-            rating: Number(localBook.rating) || 0,
-            image: localBook.image || localBook.imageUrl || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop',
-            category: localBook.category || 'Badiiy',
-            description: localBook.description || '',
-            pages: Number(localBook.pages) || 0,
-            language: localBook.language || "O'zbek tili",
-            publishedYear: Number(localBook.publishedYear) || 2024,
-            hasAudio: !!localBook.hasAudio,
-            audioUrl: localBook.audioUrl || '',
-          };
-          setBook(mapped);
-          setLoading(false);
-          return;
+        const found = await api.getBook(id);
+        setBook(found);
+        if (found) {
+          const recs = await api.getRecommendedBooks(found.id);
+          setRecommended(recs || []);
         }
-      } catch {}
-
-      // 2. Fall back to API / booksDB
-      const found = await api.getBook(id);
-      setBook(found);
-      if (found) {
-        const recs = await api.getRecommendedBooks(found.id);
-        setRecommended(recs);
+      } catch (err) {
+        console.error('Failed to load book:', err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     load();
   }, [id]);

@@ -133,23 +133,33 @@ export default function AnalyticsPage() {
             {stats.recent_reviews.length === 0
               ? <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Hali sharh yoq</p>
               : <div style={{ display: 'grid', gap: '0.75rem' }}>
-                {stats.recent_reviews.map((r) => (
-                  <div key={r.id} style={{ padding: '1rem', background: 'var(--search-bg)', borderRadius: '10px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', flexWrap: 'wrap', gap: '4px' }}>
-                      <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>{r.user_name}</span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{r.book__title}</span>
-                        <span style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 700 }}>★ {r.rating}</span>
+                {stats.recent_reviews.map((r) => {
+                  const revDate = new Date(r.created_at);
+                  const formattedDate = revDate.toLocaleDateString('uz-UZ');
+                  const formattedTime = revDate.toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+                  return (
+                    <div key={r.id} style={{ padding: '1rem', background: 'var(--search-bg)', borderRadius: '10px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', flexWrap: 'wrap', gap: '4px' }}>
+                        <span style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                          {r.user_name || 'Kitobxon'}
+                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{r.book__title}</span>
+                          <span style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 700 }}>★ {r.rating}</span>
+                        </div>
                       </div>
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                        {r.comment.length > 120 ? r.comment.slice(0, 120) + '...' : r.comment}
+                      </p>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '6px', opacity: 0.75, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>{formattedDate}</span>
+                        <span>·</span>
+                        <span style={{ fontWeight: 600 }}>{formattedTime}</span>
+                      </p>
                     </div>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                      {r.comment.length > 120 ? r.comment.slice(0, 120) + '...' : r.comment}
-                    </p>
-                    <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '4px', opacity: 0.6 }}>
-                      {new Date(r.created_at).toLocaleDateString('uz-UZ')}
-                    </p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>}
           </div>
         </>

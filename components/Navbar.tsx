@@ -136,8 +136,8 @@ export default function Navbar() {
     if (isLoggedIn) {
       const username = localStorage.getItem('username');
       if (username) {
-        const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL || `http://${host}:8000/api`;
+        const host = typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1';
+        const baseUrl = `http://${host}:8000/api`;
         fetch(`${baseUrl}/auth/ping/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -293,16 +293,8 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Mobile right actions (Theme, Profile, Menu) */}
+        {/* Mobile right actions (Profile, Menu) */}
         <div className={styles.mobileRightActions}>
-          <button
-            onClick={toggleTheme}
-            className={styles.mobileActionHeaderBtn}
-            aria-label="Mavzuni o'zgartirish"
-            title={theme === 'dark' ? "Yorug' sahifa" : "Qorong'u sahifa"}
-          >
-            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
           {isLoggedIn ? (
             <Link 
               href="/account" 

@@ -7,6 +7,7 @@ import { useSearchParams } from 'next/navigation';
 import BookCard from '@/components/BookCard';
 import booksDB from '../lib/books';
 import { api, Book } from '../lib/api';
+import { matchesFuzzyQuery } from '../lib/fuzzySearch';
 import styles from './search.module.css';
 
 // Helper to extract numeric price from string format "45,000 so'm"
@@ -67,13 +68,24 @@ function SearchContent() {
 
   // Perform filtering & sorting
   const results = useMemo(() => {
-    // 1. Text Query Filter
-    let list = query 
-      ? uniqueBooks.filter(book => 
-          book.title.toLowerCase().includes(query.toLowerCase()) || 
-          book.author.toLowerCase().includes(query.toLowerCase())
-        )
-      : uniqueBooks;
+    // 1. Smart Fuzzy Text Query Filter & Scoring
+    let list: Book[] = [];
+    if (query.trim()) {
+      const scoredList = uniqueBooks
+        .map(book => {
+          const matchResult = matchesFuzzyQuery(book.title, book.author, query);
+          return { book, ...matchResult };
+        })
+        .filter(item => item.matches);
+
+      // Default sort by relevance score if no custom sort is chosen
+      if (sortBy === 'default') {
+        scoredList.sort((a, b) => b.score - a.score);
+      }
+      list = scoredList.map(item => item.book);
+    } else {
+      list = uniqueBooks;
+    }
 
     // 2. Category Filter
     if (category !== 'All') {
@@ -96,7 +108,7 @@ function SearchContent() {
     } else if (sortBy === 'rating-desc') {
       list = [...list].sort((a, b) => b.rating - a.rating);
     } else if (sortBy === 'year-desc') {
-      list = [...list].sort((a, b) => b.publishedYear - a.publishedYear);
+      list = [...list].sort((a, b) => (parseInt(String(b.publishedYear), 10) || 0) - (parseInt(String(a.publishedYear), 10) || 0));
     }
 
     return list;
