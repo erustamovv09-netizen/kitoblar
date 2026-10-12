@@ -2,7 +2,7 @@ import booksDB from './books';
 import { mockDB, Review, ReadingProgress, Activity } from './db';
 
 
-// Dynamic API URL: adapts to localhost, mobile IP, or configured environment
+// Dynamic API URL: adapts to localhost, mobile IP (window.location.hostname:8000), or configured environment
 export const getApiBaseUrl = (): string => {
   if (typeof window !== 'undefined' && window.location.hostname) {
     return `http://${window.location.hostname}:8000/api`;
@@ -97,7 +97,7 @@ export function formatPublishedYear(year: any, title?: string, id?: string): str
 function fixMediaUrl(url?: string): string {
   if (!url) return '';
   if (typeof window !== 'undefined' && window.location.hostname) {
-    return url.replace(/https?:\/\/(127\.0\.0\.1|localhost):8000/g, `http://${window.location.hostname}:8000`);
+    return url.replace(/https?:\/\/(127\.0\.0\.1|localhost|\d+\.\d+\.\d+\.\d+):8000/g, `http://${window.location.hostname}:8000`);
   }
   return url;
 }
