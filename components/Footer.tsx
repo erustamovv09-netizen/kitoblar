@@ -6,7 +6,19 @@ import styles from './Footer.module.css';
 
 export default function Footer() {
   const pathname = usePathname();
-  if (pathname?.includes('/read') || pathname?.includes('/listen') || pathname?.startsWith('/admin')) {
+  const hideFooterRoutes = [
+    '/login',
+    '/register',
+    '/forgot-password',
+    '/reset-password',
+  ];
+
+  if (
+    pathname?.includes('/read') ||
+    pathname?.includes('/listen') ||
+    pathname?.startsWith('/admin') ||
+    hideFooterRoutes.some(route => pathname?.startsWith(route))
+  ) {
     return null;
   }
 
