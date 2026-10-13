@@ -2,13 +2,38 @@ import booksDB from './books';
 import { mockDB, Review, ReadingProgress, Activity } from './db';
 
 
-// Dynamic API URL: adapts to localhost, mobile IP (window.location.hostname:8000), or configured environment
+// Dynamic API URL: adapts to production domain, SSL, localhost, or mobile IP
 export const getApiBaseUrl = (): string => {
-  if (typeof window !== 'undefined' && window.location.hostname) {
-    return `http://${window.location.hostname}:8000/api`;
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
   }
-  return process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api";
+  if (typeof window !== 'undefined' && window.location.hostname) {
+    const host = window.location.hostname;
+    const isLocal = host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.') || host.startsWith('10.') || host.startsWith('172.');
+    if (isLocal) {
+      return `http://${host}:8000/api`;
+    }
+    // Live domain (e.g. kitoblar.shop)
+    return `${window.location.origin}/api`;
+  }
+  return "http://127.0.0.1:8000/api";
 };
+
+export const getBackendBaseUrl = (): string => {
+  if (process.env.NEXT_PUBLIC_BACKEND_URL) {
+    return process.env.NEXT_PUBLIC_BACKEND_URL;
+  }
+  if (typeof window !== 'undefined' && window.location.hostname) {
+    const host = window.location.hostname;
+    const isLocal = host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.') || host.startsWith('10.') || host.startsWith('172.');
+    if (isLocal) {
+      return `http://${host}:8000`;
+    }
+    return window.location.origin;
+  }
+  return "http://127.0.0.1:8000";
+};
+
 // Helper to always resolve the current API URL
 const getBase = () => getApiBaseUrl();
 
@@ -97,7 +122,8 @@ export function formatPublishedYear(year: any, title?: string, id?: string): str
 function fixMediaUrl(url?: string): string {
   if (!url) return '';
   if (typeof window !== 'undefined' && window.location.hostname) {
-    return url.replace(/https?:\/\/(127\.0\.0\.1|localhost|\d+\.\d+\.\d+\.\d+):8000/g, `http://${window.location.hostname}:8000`);
+    const backendBase = getBackendBaseUrl();
+    return url.replace(/https?:\/\/(127\.0\.0\.1|localhost|\d+\.\d+\.\d+\.\d+):8000/g, backendBase);
   }
   return url;
 }

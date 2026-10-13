@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { BookOpen, Star, Users, TrendingUp, BarChart2, MessageSquare, BookMarked, RefreshCw } from 'lucide-react';
+import { getApiBaseUrl } from '../../lib/api';
 
 interface Stats {
   total_books: number;
@@ -42,8 +43,7 @@ export default function AnalyticsPage() {
         if (rawLocal) localReviews = JSON.parse(rawLocal);
       } catch {}
 
-      const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || `http://${host}:8000/api`;
+      const baseUrl = getApiBaseUrl();
       
       let data: Stats;
       try {

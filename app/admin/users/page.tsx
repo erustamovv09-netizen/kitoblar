@@ -6,6 +6,7 @@ import {
   Calendar, Filter, Clock, Activity, ArrowUpDown, ChevronDown,
   BookOpen, X, BookMarked, Timer, ChevronRight
 } from 'lucide-react';
+import { getApiBaseUrl, getBackendBaseUrl } from '../../lib/api';
 
 interface UserItem {
   id: number;
@@ -46,8 +47,7 @@ const cardStyle: React.CSSProperties = {
 function getCoverUrl(coverPath?: string) {
   if (!coverPath) return 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=300&auto=format&fit=crop';
   if (coverPath.startsWith('http://') || coverPath.startsWith('https://')) return coverPath;
-  const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-  const backendBase = process.env.NEXT_PUBLIC_BACKEND_URL || `http://${host}:8000`;
+  const backendBase = getBackendBaseUrl();
   const cleanPath = coverPath.startsWith('/') ? coverPath : `/${coverPath}`;
   if (cleanPath.startsWith('/media/')) return `${backendBase}${cleanPath}`;
   return `${backendBase}/media/${coverPath}`;
@@ -94,8 +94,7 @@ export default function UsersPage() {
     setLoading(true); 
     setError('');
     try {
-      const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || `http://${host}:8000/api`;
+      const baseUrl = getApiBaseUrl();
       const res = await fetch(`${baseUrl}/admin/stats/`);
       if (!res.ok) throw new Error('Server xatosi: ' + res.status);
       const data = await res.json();

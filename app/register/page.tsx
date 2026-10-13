@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { BookOpen, User, Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { getApiBaseUrl } from '../lib/api';
 import styles from './register.module.css';
 
 export default function RegisterPage() {
@@ -54,8 +55,7 @@ export default function RegisterPage() {
     setLoading(true);
     
     try {
-      const host = typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1';
-      const baseUrl = `http://${host}:8000/api`;
+      const baseUrl = getApiBaseUrl();
       const res = await fetch(`${baseUrl}/auth/register/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

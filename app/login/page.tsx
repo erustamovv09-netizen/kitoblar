@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { BookOpen, Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle, User } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { getApiBaseUrl } from '../lib/api';
 import styles from './login.module.css';
 
 export default function LoginPage() {
@@ -30,8 +31,7 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
-      const host = typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1';
-      const baseUrl = `http://${host}:8000/api`;
+      const baseUrl = getApiBaseUrl();
       const res = await fetch(`${baseUrl}/auth/login/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

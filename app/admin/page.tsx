@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { BookOpen, Users, Star, TrendingUp, PlusCircle, ArrowRight, Eye, Clock, Flame } from 'lucide-react';
-import { api, Book } from '../lib/api';
+import { api, Book, getApiBaseUrl } from '../lib/api';
 
 export default function AdminDashboard() {
   const [statsData, setStatsData] = useState<any>(null);
@@ -11,10 +11,8 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-    
     Promise.all([
-      fetch('http://' + host + ':8000/api/admin/stats/').then(res => res.json()),
+      fetch(`${getApiBaseUrl()}/admin/stats/`).then(res => res.json()),
       api.getBooks()
     ]).then(([stats, booksData]) => {
       setStatsData(stats);
