@@ -50,7 +50,7 @@ export default function ContactPage() {
               </div>
               <div>
                 <div className="contact-card-label">Telegram</div>
-                <a href="https://t.me/Rustamov_E" target="_blank" rel="noreferrer" className="contact-card-value">@Rustamov_E</a>
+                <a href="https://t.me/Rustamovv_E" target="_blank" rel="noreferrer" className="contact-card-value">@Rustamovv_E</a>
               </div>
             </div>
 
