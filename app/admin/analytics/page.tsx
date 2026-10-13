@@ -36,11 +36,51 @@ export default function AnalyticsPage() {
   async function fetchStats() {
     setLoading(true); setError('');
     try {
+      let localReviews: any[] = [];
+      try {
+        const rawLocal = localStorage.getItem('all_recent_reviews');
+        if (rawLocal) localReviews = JSON.parse(rawLocal);
+      } catch {}
+
       const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || `http://${host}:8000/api`;
-      const res = await fetch(`${baseUrl}/admin/stats/`);
-      if (!res.ok) throw new Error('Server xatosi: ' + res.status);
-      setStats(await res.json());
+      
+      let data: Stats;
+      try {
+        const res = await fetch(`${baseUrl}/admin/stats/`);
+        if (!res.ok) throw new Error('Server xatosi: ' + res.status);
+        data = await res.json();
+      } catch (e: any) {
+        // Fallback stats if backend is unavailable
+        data = {
+          total_books: 0,
+          total_reviews: localReviews.length,
+          total_progress: 0,
+          total_users: 1,
+          avg_rating: localReviews.length ? +(localReviews.reduce((s: number, r: any) => s + (Number(r.rating) || 5), 0) / localReviews.length).toFixed(1) : 5,
+          new_books_week: 0,
+          categories: [],
+          top_books: [],
+          recent_reviews: [],
+        };
+      }
+
+      // Merge backend and local reviews so all user reviews appear with their username
+      const combined = [...(data.recent_reviews || [])];
+      for (const lr of localReviews) {
+        const exists = combined.some((br: any) => 
+          String(br.id) === String(lr.id) || 
+          (br.user_name === lr.user_name && br.comment === lr.comment && br.rating === lr.rating)
+        );
+        if (!exists) {
+          combined.push(lr);
+        }
+      }
+      combined.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      data.recent_reviews = combined.slice(0, 15);
+      data.total_reviews = Math.max(data.total_reviews || 0, combined.length);
+
+      setStats(data);
       setLastUpdated(new Date().toLocaleTimeString('uz-UZ'));
     } catch (e: any) {
       setError(e.message || 'Yuklanmadi');
@@ -49,7 +89,16 @@ export default function AnalyticsPage() {
     }
   }
 
-  useEffect(() => { fetchStats(); }, []);
+  useEffect(() => { 
+    fetchStats(); 
+    const handleUpdate = () => fetchStats();
+    window.addEventListener('admin-reviews-updated', handleUpdate);
+    window.addEventListener('reviews-updated', handleUpdate);
+    return () => {
+      window.removeEventListener('admin-reviews-updated', handleUpdate);
+      window.removeEventListener('reviews-updated', handleUpdate);
+    };
+  }, []);
 
   const maxCat = stats?.categories.reduce((m, c) => Math.max(m, c.count), 1) || 1;
 

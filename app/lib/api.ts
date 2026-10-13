@@ -606,7 +606,6 @@ export const api = {
       });
       if (response.ok) {
         const data = await response.json();
-        mockDB.logEvent(`"${review.userName}" tomonidan kitobga ${review.rating} ballik sharh qoldirildi`, 'user');
         return {
           id: String(data.id),
           bookId: String(data.book || bookId),
@@ -618,7 +617,6 @@ export const api = {
       }
     } catch { }
 
-    mockDB.logEvent(`"${review.userName}" tomonidan kitobga ${review.rating} ballik sharh qoldirildi`, 'user');
     return localResult;
   },
 

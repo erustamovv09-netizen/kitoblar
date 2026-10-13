@@ -169,9 +169,28 @@ export default function AccountPage() {
             setQuotes(Array.isArray(parsedQuotes) ? parsedQuotes : []);
         } catch { setQuotes([]); }
 
+        // Clean up any review entries from local activity log storage
+        try {
+            const rawAct = localStorage.getItem('activity_log');
+            if (rawAct) {
+                const parsed = JSON.parse(rawAct);
+                if (Array.isArray(parsed)) {
+                    const filtered = parsed.filter((item: any) => 
+                        !item.text?.toLowerCase().includes('sharh') && 
+                        !item.text?.toLowerCase().includes('ballik')
+                    );
+                    localStorage.setItem('activity_log', JSON.stringify(filtered));
+                }
+            }
+        } catch {}
+
         // Fetch activity logs from backend API
         api.getActivityLog().then(parsedActivity => {
-            setActivityLog(parsedActivity);
+            const cleanActivity = (parsedActivity || []).filter(item => 
+                !item.text?.toLowerCase().includes('sharh') && 
+                !item.text?.toLowerCase().includes('ballik')
+            );
+            setActivityLog(cleanActivity);
         }).catch(() => {
             setActivityLog([
                 { id: '1', text: 'Tizimda hisob muvaffaqiyatli faollashtirildi', time: '1 hafta oldin', type: 'system' }

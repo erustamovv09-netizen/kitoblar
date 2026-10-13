@@ -66,9 +66,32 @@ export const mockDB = {
 
       // Trigger custom events to notify other components of update
       window.dispatchEvent(new CustomEvent('reviews-updated', { detail: { bookId, avg, count: updated.length } }));
-      
-      // Log this activity
-      this.logEvent(`"${review.userName}" tomonidan kitobga ${review.rating} ballik sharh qoldirildi`, 'user');
+
+      // Save to recent reviews store for Admin Analytics
+      try {
+        const rawRecent = localStorage.getItem('all_recent_reviews');
+        const recentList = rawRecent ? JSON.parse(rawRecent) : [];
+        const booksListRaw = localStorage.getItem('cached_books');
+        let bookTitle = `Kitob #${bookId}`;
+        if (booksListRaw) {
+          try {
+            const bList = JSON.parse(booksListRaw);
+            const found = bList.find((b: any) => String(b.id) === String(bookId));
+            if (found?.title) bookTitle = found.title;
+          } catch {}
+        }
+        const adminReviewItem = {
+          id: Date.now(),
+          user_name: review.userName || 'Kitobxon',
+          rating: review.rating,
+          comment: review.comment || '',
+          created_at: new Date().toISOString(),
+          book__title: bookTitle
+        };
+        const updatedRecent = [adminReviewItem, ...recentList.filter((r: any) => r.id !== adminReviewItem.id)].slice(0, 30);
+        localStorage.setItem('all_recent_reviews', JSON.stringify(updatedRecent));
+        window.dispatchEvent(new Event('admin-reviews-updated'));
+      } catch {}
     }
     return newReview;
   },
