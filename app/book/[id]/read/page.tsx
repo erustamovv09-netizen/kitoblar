@@ -202,6 +202,20 @@ export default function BookReaderPage({ params }: { params: Promise<{ id: strin
     );
   }, [currentChapter, bookId, chapters, totalChapters, loading]);
 
+  // Track active reading time (accumulates seconds while reading)
+  useEffect(() => {
+    if (loading) return;
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        const username = (typeof window !== 'undefined' ? (localStorage.getItem('username') || localStorage.getItem('name')) : null) || 'rustamov';
+        const key = `user_reading_time_${username}_${bookId}`;
+        const currentSecs = Number(localStorage.getItem(key) || 0) + 10;
+        localStorage.setItem(key, String(currentSecs));
+      }
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [loading, bookId]);
+
   const handleNextChapter = () => {
     if (currentChapter < totalChapters - 1) {
       setCurrentChapter(prev => prev + 1);
