@@ -9,44 +9,92 @@ import styles from './Hero.module.css';
 const MAX_CHARS = 120;
 
 export default function Hero() {
-  const [heroBook, setHeroBook] = useState<Book | null>(null);
+  const [heroBook, setHeroBook] = useState<Book | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('cached_hero_top_book');
+        if (cached) return JSON.parse(cached);
+      } catch {}
+    }
+    return null;
+  });
+  const [loading, setLoading] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('cached_hero_top_book');
+        if (cached) return false;
+      } catch {}
+    }
+    return true;
+  });
   const [descExpanded, setDescExpanded] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
     async function load() {
-      // 1. Birinchi bo'lib API / Backend kitoblarini tekshirish (haqiqiy manba)
       try {
         const books = await api.getBooks();
         if (books && books.length > 0) {
-          const top = books.find(b => (b as any).is_weekly_top === true || (b as any).isWeeklyTop === true);
-          if (top) {
+          // Hafta kitobi: is_weekly_top belgilangan kitob yoki birinchi haqiqiy backend kitobi
+          const top = books.find(b => (b as any).is_weekly_top === true || (b as any).isWeeklyTop === true) || books[0];
+          if (isMounted && top) {
             setHeroBook(top);
+            setLoading(false);
+            try {
+              localStorage.setItem('cached_hero_top_book', JSON.stringify(top));
+            } catch {}
             return;
           }
         }
-      } catch {}
+      } catch (err) {
+        console.error("Hero load error:", err);
+      }
 
-      // 2. Agar API ishlamasa, faqatgina shunda localStorage ga murojaat qilish
-      try {
-        const adminBooks = JSON.parse(localStorage.getItem('admin_books') || '[]');
-        const adminWeekly = adminBooks.find((b: any) => b.is_weekly_top === true || b.isWeeklyTop === true);
-        if (adminWeekly) {
-          setHeroBook(adminWeekly);
-          return;
-        }
-      } catch {}
-
-      // If no book has weekly top enabled, show default classic hero ("O'tkan kunlar")
-      setHeroBook(null);
+      if (isMounted) {
+        setLoading(false);
+      }
     }
     load();
+    return () => { isMounted = false; };
   }, []);
 
-  const bookTitle  = heroBook ? heroBook.title : "O'tkan kunlar";
-  const bookAuthor = heroBook ? `Muallif: ${heroBook.author}` : "Muallif: Abdulla Qodiriy";
-  const bookDesc   = heroBook ? heroBook.description : "O'zbek adabiyotidagi birinchi roman. Asarda XIX asr o'rtalaridagi Toshkent va Qo'qon hayoti, muhabbat va xiyonat, qahramonlik va fojia tasvirlangan.";
-  const bookLink   = heroBook ? `/book/${heroBook.id}` : "/book/1";
-  const bookImage  = heroBook ? heroBook.image : "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop";
+  // Backenddan haqiqiy kitob yuklanguncha chiroyli skeleton ko'rsatish (eski soxta kitob ko'rinmaydi)
+  if (loading && !heroBook) {
+    return (
+      <section className={styles.hero}>
+        <div className={styles.container}>
+          <div className={styles.content}>
+            <div className="skeleton" style={{ width: '130px', height: '32px', borderRadius: '999px' }} />
+            <div className="skeleton" style={{ width: '85%', height: '56px', borderRadius: '12px' }} />
+            <div className="skeleton" style={{ width: '45%', height: '26px', borderRadius: '8px' }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '6px' }}>
+              <div className="skeleton" style={{ width: '100%', height: '16px', borderRadius: '6px' }} />
+              <div className="skeleton" style={{ width: '92%', height: '16px', borderRadius: '6px' }} />
+              <div className="skeleton" style={{ width: '75%', height: '16px', borderRadius: '6px' }} />
+            </div>
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '14px' }}>
+              <div className="skeleton" style={{ width: '170px', height: '48px', borderRadius: '14px' }} />
+              <div className="skeleton" style={{ width: '170px', height: '48px', borderRadius: '14px' }} />
+            </div>
+          </div>
+          <div className={styles.imageWrapper} style={{ pointerEvents: 'none', display: 'flex', justifyContent: 'center' }}>
+            <div className="skeleton" style={{ width: '320px', height: '440px', borderRadius: '24px' }} />
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // Agar umuman kitob bo'lmasa, soxta e'lon chiqmasligi uchun hech narsa ko'rsatmaymiz
+  if (!heroBook) {
+    return null;
+  }
+
+  const bookTitle  = heroBook.title;
+  const bookAuthor = `Muallif: ${heroBook.author}`;
+  const bookDesc   = heroBook.description || '';
+  const bookLink   = `/book/${heroBook.id}`;
+  const bookImage  = heroBook.image;
 
   const isLong = bookDesc.length > MAX_CHARS;
   const shownDesc = isLong && !descExpanded
