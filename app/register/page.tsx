@@ -102,30 +102,9 @@ function RegisterForm() {
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.5, ease: 'easeOut' }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-          <Link
-            href={fromUrl}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              color: 'var(--text-secondary, #94a3b8)',
-              textDecoration: 'none',
-              fontSize: '0.88rem',
-              fontWeight: 500,
-              padding: '6px 12px',
-              borderRadius: '8px',
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid var(--border-color, rgba(255, 255, 255, 0.08))',
-              transition: 'all 0.2s'
-            }}
-          >
-            <ArrowLeft size={16} />
-            <span>Orqaga qaytish</span>
-          </Link>
-
+        <div className={styles.logoRow}>
           <Link href="/" className={styles.logo}>
-            <BookOpen size={24} className={styles.logoIcon} />
+            <BookOpen size={26} className={styles.logoIcon} />
             <span>Kitoblar</span>
           </Link>
         </div>
