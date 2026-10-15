@@ -1,15 +1,19 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { BookOpen, User, Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { BookOpen, User, Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { getApiBaseUrl } from '../lib/api';
 import styles from './register.module.css';
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectUrl = searchParams.get('redirect') || '/';
+  const fromUrl = searchParams.get('from') || (redirectUrl.startsWith('/book/') ? redirectUrl.replace(/\/read$|\/listen$/, '') : '/');
+
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -76,7 +80,8 @@ export default function RegisterPage() {
         year: 'numeric', month: 'long', day: 'numeric'
       }));
       window.dispatchEvent(new Event('auth-changed'));
-      router.push('/');
+      
+      router.push(redirectUrl);
     } catch (err: any) {
       setError(err.message || 'Xatolik yuz berdi');
     } finally {
@@ -97,9 +102,30 @@ export default function RegisterPage() {
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.5, ease: 'easeOut' }}
       >
-        <div className={styles.logoRow}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+          <Link
+            href={fromUrl}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              color: 'var(--text-secondary, #94a3b8)',
+              textDecoration: 'none',
+              fontSize: '0.88rem',
+              fontWeight: 500,
+              padding: '6px 12px',
+              borderRadius: '8px',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid var(--border-color, rgba(255, 255, 255, 0.08))',
+              transition: 'all 0.2s'
+            }}
+          >
+            <ArrowLeft size={16} />
+            <span>Orqaga qaytish</span>
+          </Link>
+
           <Link href="/" className={styles.logo}>
-            <BookOpen size={26} className={styles.logoIcon} />
+            <BookOpen size={24} className={styles.logoIcon} />
             <span>Kitoblar</span>
           </Link>
         </div>
@@ -118,7 +144,7 @@ export default function RegisterPage() {
                 id="reg-name"
                 type="text"
                 className={styles.input}
-                placeholder="Elshod Rustamov"
+                placeholder="Alisher Navoiy"
                 value={name}
                 onChange={e => setName(e.target.value)}
                 autoComplete="name"
@@ -134,7 +160,7 @@ export default function RegisterPage() {
                 id="reg-username"
                 type="text"
                 className={styles.input}
-                placeholder="admin"
+                placeholder="alisher_navoiy"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
                 autoComplete="username"
@@ -150,7 +176,7 @@ export default function RegisterPage() {
                 id="reg-email"
                 type="email"
                 className={styles.input}
-                placeholder="email@misol.com"
+                placeholder="alisher@example.com"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 autoComplete="email"
@@ -166,27 +192,33 @@ export default function RegisterPage() {
                 id="reg-password"
                 type={showPass ? 'text' : 'password'}
                 className={`${styles.input} ${styles.inputPadRight}`}
-                placeholder="••••••••"
+                placeholder="Kamida 6 ta belgi"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 autoComplete="new-password"
               />
-              <button type="button" className={styles.eyeBtn} onClick={() => setShowPass(v => !v)} aria-label="Parolni ko'rsatish/yashirish">
+              <button
+                type="button"
+                className={styles.eyeBtn}
+                onClick={() => setShowPass(v => !v)}
+                aria-label={showPass ? "Parolni yashirish" : "Parolni ko'rsatish"}
+              >
                 {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
+
             {password.length > 0 && (
-              <div className={styles.strengthRow}>
+              <div className={styles.strengthMeter}>
                 <div className={styles.strengthBar}>
-                  {[1, 2, 3, 4].map(i => (
-                    <div
-                      key={i}
-                      className={styles.strengthSegment}
-                      style={{ background: i <= strength ? strengthColors[strength] : 'var(--border-color)' }}
-                    />
-                  ))}
+                  <div
+                    className={styles.strengthFill}
+                    style={{
+                      width: `${(strength / 4) * 100}%`,
+                      backgroundColor: strengthColors[strength],
+                    }}
+                  />
                 </div>
-                <span className={styles.strengthLabel} style={{ color: strengthColors[strength] }}>
+                <span className={styles.strengthText} style={{ color: strengthColors[strength] }}>
                   {strengthLabels[strength]}
                 </span>
               </div>
@@ -194,28 +226,27 @@ export default function RegisterPage() {
           </div>
 
           <div className={styles.field}>
-            <label className={styles.label} htmlFor="reg-confirm">Parolni tasdiqlash</label>
+            <label className={styles.label} htmlFor="reg-confirm">Parolni tasdiqlang</label>
             <div className={styles.inputWrapper}>
               <Lock size={18} className={styles.inputIcon} />
               <input
                 id="reg-confirm"
                 type={showConfirm ? 'text' : 'password'}
                 className={`${styles.input} ${styles.inputPadRight}`}
-                placeholder="••••••••"
+                placeholder="Parolni qayta kiriting"
                 value={confirmPassword}
                 onChange={e => setConfirmPassword(e.target.value)}
                 autoComplete="new-password"
               />
-              <button type="button" className={styles.eyeBtn} onClick={() => setShowConfirm(v => !v)} aria-label="Parolni ko'rsatish/yashirish">
+              <button
+                type="button"
+                className={styles.eyeBtn}
+                onClick={() => setShowConfirm(v => !v)}
+                aria-label={showConfirm ? "Parolni yashirish" : "Parolni ko'rsatish"}
+              >
                 {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
-            {confirmPassword.length > 0 && password === confirmPassword && (
-              <div className={styles.matchOk}>
-                <CheckCircle2 size={14} />
-                <span>Parollar mos keldi</span>
-              </div>
-            )}
           </div>
 
           {error && (
@@ -250,9 +281,22 @@ export default function RegisterPage() {
 
         <p className={styles.switchText}>
           Hisobingiz bormi?{' '}
-          <Link href="/login" className={styles.switchLink}>Kirish</Link>
+          <Link
+            href={`/login?redirect=${encodeURIComponent(redirectUrl)}&from=${encodeURIComponent(fromUrl)}`}
+            className={styles.switchLink}
+          >
+            Kirish
+          </Link>
         </p>
       </motion.div>
     </main>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }} />}>
+      <RegisterForm />
+    </Suspense>
   );
 }

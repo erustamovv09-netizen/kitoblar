@@ -17,9 +17,9 @@ export default function ListenPage({ params }: { params: Promise<{ id: string }>
   useEffect(() => {
     const isLogged = localStorage.getItem('username');
     if (!isLogged) {
-      router.push('/login');
+      router.replace(`/login?redirect=${encodeURIComponent(`/book/${resolvedParams.id}/listen`)}&from=${encodeURIComponent(`/book/${resolvedParams.id}`)}`);
     }
-  }, [router]);
+  }, [router, resolvedParams.id]);
 
   // Audio state
   const audioRef = useRef<HTMLAudioElement>(null);

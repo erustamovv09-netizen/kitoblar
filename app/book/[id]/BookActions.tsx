@@ -24,6 +24,7 @@ export default function BookActions({ book, recommended }: { book: Book; recomme
     const [toast, setToast] = useState('');
     const [shareOpen, setShareOpen] = useState(false);
     const [copied, setCopied] = useState(false);
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
 
     useEffect(() => {
         try {
@@ -34,6 +35,17 @@ export default function BookActions({ book, recommended }: { book: Book; recomme
             setIsFav(false);
         }
     }, [book.id]);
+
+    useEffect(() => {
+        const checkAuth = () => {
+            if (typeof window !== 'undefined') {
+                setIsLoggedIn(Boolean(localStorage.getItem('username')));
+            }
+        };
+        checkAuth();
+        window.addEventListener('auth-changed', checkAuth);
+        return () => window.removeEventListener('auth-changed', checkAuth);
+    }, []);
 
     useEffect(() => {
         // add a mount class to container for entrance animations
@@ -124,6 +136,14 @@ export default function BookActions({ book, recommended }: { book: Book; recomme
     const desc = book?.description || '';
     const shortDesc = desc.slice(0, 280);
 
+    const readHref = isLoggedIn
+        ? `/book/${book.id}/read`
+        : `/login?redirect=${encodeURIComponent(`/book/${book.id}/read`)}&from=${encodeURIComponent(`/book/${book.id}`)}`;
+
+    const listenHref = isLoggedIn
+        ? `/book/${book.id}/listen`
+        : `/login?redirect=${encodeURIComponent(`/book/${book.id}/listen`)}&from=${encodeURIComponent(`/book/${book.id}`)}`;
+
     return (
         <>
             {toast && <div className={styles.toast}>{toast}</div>}
@@ -141,14 +161,14 @@ export default function BookActions({ book, recommended }: { book: Book; recomme
             </div>
 
             <div className={styles.actionButtons}>
-                <Link href={`/book/${book.id}/read`} className={styles.primaryBtn} style={{ display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
-                    <BookOpen size={18} /> Mutolaa
-                </Link>
-                {book.hasAudio && (
-                    <Link href={`/book/${book.id}/listen`} className={styles.primaryBtn} style={{ backgroundColor: '#8b5cf6', display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
-                        <Headphones size={18} /> Eshitish
+                    <Link href={readHref} className={styles.primaryBtn} style={{ display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                        <BookOpen size={18} /> Mutolaa
                     </Link>
-                )}
+                    {book.hasAudio && (
+                        <Link href={listenHref} className={styles.primaryBtn} style={{ backgroundColor: '#8b5cf6', display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                            <Headphones size={18} /> Eshitish
+                        </Link>
+                    )}
                 <button onClick={handleBuy} className={styles.primaryBtn} style={{ backgroundColor: 'transparent', color: 'var(--text-primary)', border: '1px solid var(--search-border)', display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
                     Sotib olish
                 </button>

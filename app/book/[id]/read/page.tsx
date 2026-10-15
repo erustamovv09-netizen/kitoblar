@@ -92,13 +92,13 @@ export default function BookReaderPage({ params }: { params: Promise<{ id: strin
   const [currentChapter, setCurrentChapter] = useState(0);
   const [loading, setLoading] = useState(true);
   
-  // Auth Check
+  // Auth Check - router.replace orqali brauzer tarixida halqa (loop) hosil bo'lishining oldi olinadi
   useEffect(() => {
     const isLogged = localStorage.getItem('username');
     if (!isLogged) {
-      router.push('/login');
+      router.replace(`/login?redirect=${encodeURIComponent(`/book/${bookId}/read`)}&from=${encodeURIComponent(`/book/${bookId}`)}`);
     }
-  }, [router]);
+  }, [router, bookId]);
 
   // O'zbek lotin → kiril transliteratsiyasi
   const toСyrillic = (text: string): string => {

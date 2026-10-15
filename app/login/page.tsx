@@ -1,16 +1,19 @@
-
 "use client";
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { BookOpen, Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle, User } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { BookOpen, Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, AlertCircle, User } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { getApiBaseUrl } from '../lib/api';
 import styles from './login.module.css';
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectUrl = searchParams.get('redirect') || '/';
+  const fromUrl = searchParams.get('from') || (redirectUrl.startsWith('/book/') ? redirectUrl.replace(/\/read$|\/listen$/, '') : '/');
+
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -54,7 +57,9 @@ export default function LoginPage() {
         }));
       }
       window.dispatchEvent(new Event('auth-changed'));
-      router.push('/');
+      
+      // Kirgandan so'ng to'xtagan kitobiga yoki ko'zlangan sahifaga yo'naltirish
+      router.push(redirectUrl);
     } catch (err: any) {
       setError(err.message || 'Xatolik yuz berdi');
     } finally {
@@ -73,16 +78,37 @@ export default function LoginPage() {
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.5, ease: 'easeOut' }}
       >
-        <div className={styles.logoRow}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+          <Link
+            href={fromUrl}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              color: 'var(--text-secondary, #94a3b8)',
+              textDecoration: 'none',
+              fontSize: '0.88rem',
+              fontWeight: 500,
+              padding: '6px 12px',
+              borderRadius: '8px',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid var(--border-color, rgba(255, 255, 255, 0.08))',
+              transition: 'all 0.2s'
+            }}
+          >
+            <ArrowLeft size={16} />
+            <span>Orqaga qaytish</span>
+          </Link>
+
           <Link href="/" className={styles.logo}>
-            <BookOpen size={26} className={styles.logoIcon} />
+            <BookOpen size={24} className={styles.logoIcon} />
             <span>Kitoblar</span>
           </Link>
         </div>
 
         <div className={styles.header}>
           <h1 className={styles.title}>Xush kelibsiz!</h1>
-          <p className={styles.subtitle}>Hisobingizga kiring va kitob dunyosini kashf eting</p>
+          <p className={styles.subtitle}>Hisobingizga kiring va mutolaani davom ettiring</p>
         </div>
 
         <form className={styles.form} onSubmit={handleSubmit}>
@@ -183,12 +209,23 @@ export default function LoginPage() {
         </div>
 
         <p className={styles.switchText}>
-          Hisobingiz yo'qmi?{' '}
-          <Link href="/register" className={styles.switchLink}>
-            Ro'yxatdan o'ting
+          Hisobingiz yo&apos;qmi?{' '}
+          <Link
+            href={`/register?redirect=${encodeURIComponent(redirectUrl)}&from=${encodeURIComponent(fromUrl)}`}
+            className={styles.switchLink}
+          >
+            Ro&apos;yxatdan o&apos;ting
           </Link>
         </p>
       </motion.div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }} />}>
+      <LoginForm />
+    </Suspense>
   );
 }
