@@ -64,9 +64,9 @@ async function fetchWithFallback<T>(
 ): Promise<T> {
   const url = `${getApiBaseUrl()}${endpoint}`;
 
-  // Create controller to implement timeout (e.g., 2 seconds)
+  // Create controller to implement timeout (e.g., 10 seconds for cloud cold starts)
   const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), 2000);
+  const id = setTimeout(() => controller.abort(), 10000);
 
   try {
     const response = await fetch(url, {
@@ -121,8 +121,11 @@ export function formatPublishedYear(year: any, title?: string, id?: string): str
 
 function fixMediaUrl(url?: string): string {
   if (!url) return '';
+  const backendBase = getBackendBaseUrl();
+  if (url.startsWith('/media/') || url.startsWith('/static/')) {
+    return `${backendBase}${url}`;
+  }
   if (typeof window !== 'undefined' && window.location.hostname) {
-    const backendBase = getBackendBaseUrl();
     return url.replace(/https?:\/\/(127\.0\.0\.1|localhost|\d+\.\d+\.\d+\.\d+):8000/g, backendBase);
   }
   return url;
