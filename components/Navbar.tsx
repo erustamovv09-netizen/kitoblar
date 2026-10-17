@@ -217,6 +217,7 @@ export default function Navbar() {
         <div className={styles.right}>
           <div className={styles.navLinks}>
             <Link href="/" className={styles.navLink}>Bosh sahifa</Link>
+            <Link href="/aksiyalar" className={styles.navLink} style={{ color: '#f59e0b', fontWeight: 600 }}>Aksiyalar 🔥</Link>
             <div 
               style={{ position: 'relative' }} 
               onMouseEnter={() => setShowDesktopCats(true)} 
@@ -327,6 +328,7 @@ export default function Navbar() {
           {/* Nav links */}
           <div className={styles.mobileLinks}>
             <Link href="/" className={styles.mobileLink} onClick={() => setMobileOpen(false)}>Bosh sahifa</Link>
+            <Link href="/aksiyalar" className={styles.mobileLink} onClick={() => setMobileOpen(false)} style={{ color: '#f59e0b', fontWeight: 600 }}>Aksiyalar 🔥</Link>
             <button 
               className={styles.mobileLink} 
               onClick={() => setShowMobileCats(!showMobileCats)}

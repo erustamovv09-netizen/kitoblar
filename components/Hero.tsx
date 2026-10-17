@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { Flame } from 'lucide-react';
 import { api, Book } from '@/app/lib/api';
 import styles from './Hero.module.css';
 
@@ -187,7 +188,10 @@ export default function Hero() {
             transition={{ duration: 0.5, delay: 0.6 }}
           >
             <Link href={bookLink} className={styles.primaryBtn}>O&apos;qishni boshlash</Link>
-            <Link href={bookLink} className={styles.secondaryBtn}>Batafsil ma&apos;lumot</Link>
+            <Link href="/aksiyalar" className={styles.secondaryBtn}>
+              <Flame size={18} style={{ color: '#f59e0b' }} />
+              <span>Aksiyalar</span>
+            </Link>
           </motion.div>
         </motion.div>
 
