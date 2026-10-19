@@ -20,7 +20,7 @@ import styles from './page.module.css';
 
 interface DiscountedBook extends Book {
   discountPercent: number;
-  salePrice: number;
+  salePriceNum: number;
   originalPrice: number;
   discountExpiresAt?: string | null;
 }
@@ -50,7 +50,7 @@ function getDiscountInfo(book: Book): DiscountedBook | null {
   return {
     ...book,
     discountPercent,
-    salePrice: salePriceRaw,
+    salePriceNum: salePriceRaw,
     originalPrice,
     discountExpiresAt: expiresAt,
   };
@@ -229,7 +229,7 @@ export default function AksiyalarPage() {
                       )}
                       <div className={styles.priceRow}>
                         <span className={styles.salePrice}>
-                          {book.salePrice.toLocaleString('uz-UZ')} so&apos;m
+                          {book.salePriceNum.toLocaleString('uz-UZ')} so&apos;m
                         </span>
                         <span className={styles.oldPrice}>
                           {book.originalPrice.toLocaleString('uz-UZ')} so&apos;m

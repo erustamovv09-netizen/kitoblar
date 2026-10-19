@@ -54,6 +54,10 @@ export interface Book {
   content?: string;
   is_weekly_top?: boolean;
   isWeeklyTop?: boolean;
+  sale_price?: number | null;
+  salePrice?: string;
+  discount_expires_at?: string | null;
+  discountExpiresAt?: string | null;
 }
 
 // Utility to handle fetch requests with a timeout and automatic mock fallback
@@ -175,6 +179,11 @@ function mapDjangoBookToBook(djangoBook: any): Book {
     content: djangoBook.content || '',
     is_weekly_top: Boolean(djangoBook.is_weekly_top || djangoBook.isWeeklyTop),
     isWeeklyTop: Boolean(djangoBook.is_weekly_top || djangoBook.isWeeklyTop),
+    // Chegirma maydonlari
+    sale_price: djangoBook.sale_price != null ? Number(djangoBook.sale_price) : null,
+    salePrice: djangoBook.salePrice || (djangoBook.sale_price ? String(djangoBook.sale_price) : ''),
+    discount_expires_at: djangoBook.discount_expires_at || null,
+    discountExpiresAt: djangoBook.discount_expires_at || djangoBook.discountExpiresAt || null,
   } as any;
 }
 
@@ -272,6 +281,10 @@ export const api = {
           content: e.content || '',
           is_weekly_top: Boolean(e.is_weekly_top || e.isWeeklyTop),
           isWeeklyTop: Boolean(e.is_weekly_top || e.isWeeklyTop),
+          sale_price: e.sale_price != null ? Number(e.sale_price) : null,
+          salePrice: e.salePrice || '',
+          discount_expires_at: e.discount_expires_at || null,
+          discountExpiresAt: e.discount_expires_at || e.discountExpiresAt || null,
         } as Book));
 
       return [...filtered, ...localOnlyBooks];
@@ -299,6 +312,10 @@ export const api = {
         content: e.content || '',
         is_weekly_top: Boolean(e.is_weekly_top || e.isWeeklyTop),
         isWeeklyTop: Boolean(e.is_weekly_top || e.isWeeklyTop),
+        sale_price: e.sale_price != null ? Number(e.sale_price) : null,
+        salePrice: e.salePrice || '',
+        discount_expires_at: e.discount_expires_at || null,
+        discountExpiresAt: e.discount_expires_at || e.discountExpiresAt || null,
       } as Book));
 
     if (Object.keys(localEdits).length === 0) return [...filtered, ...localOnlyBooks];
