@@ -219,6 +219,28 @@ function getDeletedBookIds(): Set<string> {
 
 
 
+// Helper: chegirma override larini alohida localStorage kalitida saqlash
+function getDiscountOverrides(): Record<string, { sale_price: number | null; discount_expires_at: string | null }> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem('discount_overrides');
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+
+export function saveDiscountOverride(bookId: string, salePrice: number | null, discountExpiresAt: string | null) {
+  if (typeof window === 'undefined') return;
+  try {
+    const overrides = getDiscountOverrides();
+    if (salePrice && salePrice > 0) {
+      overrides[String(bookId)] = { sale_price: salePrice, discount_expires_at: discountExpiresAt };
+    } else {
+      delete overrides[String(bookId)];
+    }
+    localStorage.setItem('discount_overrides', JSON.stringify(overrides));
+  } catch {}
+}
+
 export const api = {
   // ── Books APIs ────────────────────────────────────────────────────────
   async getBooks(): Promise<Book[]> {
@@ -250,8 +272,12 @@ export const api = {
     if (fromBackend) {
       const localEdits = getLocalAdminBooks();
       const backendIds = new Set(filtered.map(b => String(b.id)));
+      // Chegirma override lari (backend da bu maydon bo'lmasa ham)
+      const discountOverrides = getDiscountOverrides();
 
       // Auto-clean stale edits from localStorage for books that exist on backend
+      // NOTE: discount_overrides is intentionally NOT cleaned — it stores discount data
+      // that the backend may not support yet.
       if (typeof window !== 'undefined') {
         try {
           const stored: any[] = JSON.parse(localStorage.getItem('admin_books') || '[]');
@@ -287,7 +313,19 @@ export const api = {
           discountExpiresAt: e.discount_expires_at || e.discountExpiresAt || null,
         } as Book));
 
-      return [...filtered, ...localOnlyBooks];
+      // Apply discount overrides to backend books
+      const filteredWithDiscount = filtered.map(book => {
+        const ov = discountOverrides[String(book.id)];
+        if (!ov) return book;
+        return {
+          ...book,
+          sale_price: ov.sale_price,
+          discount_expires_at: ov.discount_expires_at,
+          discountExpiresAt: ov.discount_expires_at,
+        };
+      });
+
+      return [...filteredWithDiscount, ...localOnlyBooks];
     }
 
     // ── 3b. Backend offline → booksDB + localStorage-only books ──────────────

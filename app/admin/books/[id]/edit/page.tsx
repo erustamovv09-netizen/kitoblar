@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, BookOpen, Save, CheckCircle2, Link2, ImageIcon, Upload, X, Server, HardDrive } from 'lucide-react';
-import { api, Book } from '../../../../lib/api';
+import { api, Book, saveDiscountOverride } from '../../../../lib/api';
 import { countChaptersInContent } from '@/app/lib/chapters';
 
 const CATEGORIES = ['Badiiy', 'Biznes', 'Ilmiy', 'Tarixiy', 'Detektiv', 'Bolalar adabiyoti', 'Jahon adabiyoti', 'Shaxsiy rivojlanish', 'Moliya', 'Falsafa', 'Psixologiya'];
@@ -194,6 +194,13 @@ export default function EditBookPage() {
     };
 
     const res = await api.updateBook(bookId, payload, imageFile);
+    // Chegirma ma'lumotlarini alohida localStorage kalitiga saqlash
+    // (backend bu maydonni qabul qilmasa ham ishlaydi)
+    saveDiscountOverride(
+      bookId,
+      salePriceNum > 0 ? salePriceNum : null,
+      discountExpiresAt
+    );
     setSavedToBackend(res.fromBackend);
     setSaving(false);
     setSuccess(true);
