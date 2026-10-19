@@ -36,7 +36,9 @@ export default function AddBookPage() {
     pages: '', language: "O'zbek tili", publishedYear: new Date().getFullYear().toString(),
     hasAudio: false, audioUrl: '', imageUrl: '', isWeeklyTop: false,
     rating: '5.0',
-    content: ''
+    content: '',
+    salePrice: '',
+    discountDays: ''
   });
   const [imageMode, setImageMode] = useState<ImageMode>('url');
   const [previewUrl, setPreviewUrl] = useState('');
@@ -137,7 +139,7 @@ export default function AddBookPage() {
       title: '', author: '', price: '', description: '',
       pages: '', language: "O'zbek tili", publishedYear: new Date().getFullYear().toString(),
       hasAudio: false, audioUrl: '', imageUrl: '', isWeeklyTop: false,
-      rating: '5.0', content: ''
+      rating: '5.0', content: '', salePrice: '', discountDays: ''
     });
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -168,6 +170,14 @@ export default function AddBookPage() {
         fd.append('is_weekly_top', form.isWeeklyTop ? 'true' : 'false');
         fd.append('is_trending', form.isWeeklyTop ? 'true' : 'false');
         fd.append('content', form.content || '');
+        // Chegirma ma'lumotlari
+        const salePriceNum = Number(form.salePrice.replace(/\D/g, '')) || 0;
+        if (salePriceNum > 0) fd.append('sale_price', String(salePriceNum));
+        if (form.discountDays && Number(form.discountDays) > 0) {
+          const expDate = new Date();
+          expDate.setDate(expDate.getDate() + Number(form.discountDays));
+          fd.append('discount_expires_at', expDate.toISOString());
+        }
 
         // Image: prefer actual file; for URL mode, try to fetch & re-upload
         if (imageFile) {
@@ -222,6 +232,13 @@ export default function AddBookPage() {
       ? (categories.find(c => c.id === selectedCategoryId)?.name || staticCategory)
       : staticCategory;
 
+    const salePriceNum = Number((form.salePrice || '').replace(/\D/g, '')) || 0;
+    let discountExpiresAt: string | null = null;
+    if (form.discountDays && Number(form.discountDays) > 0) {
+      const exp = new Date();
+      exp.setDate(exp.getDate() + Number(form.discountDays));
+      discountExpiresAt = exp.toISOString();
+    }
     const stored: any[] = JSON.parse(localStorage.getItem('admin_books') || '[]');
     const updatedStored = form.isWeeklyTop
       ? stored.map((b: any) => ({ ...b, isWeeklyTop: false, is_weekly_top: false }))
@@ -231,6 +248,10 @@ export default function AddBookPage() {
       id: Date.now().toString(),
       category: categoryName,
       price: form.price ? `${Number(form.price.replace(/\D/g, '')).toLocaleString('uz-UZ')} so'm` : "0 so'm",
+      salePrice: salePriceNum > 0 ? `${salePriceNum.toLocaleString('uz-UZ')} so'm` : '',
+      sale_price: salePriceNum > 0 ? salePriceNum : null,
+      discountExpiresAt,
+      discount_expires_at: discountExpiresAt,
       rating: parseFloat(form.rating) || 5.0,
       pages: Number(form.pages) || 0,
       publishedYear: form.publishedYear || String(new Date().getFullYear()),
@@ -328,7 +349,7 @@ export default function AddBookPage() {
                 )}
               </div>
               <div>
-                <label style={labelStyle}>Narxi (so&apos;m)</label>
+                <label style={labelStyle}>Narxi (so&apos;m) — asl narx</label>
                 <input style={inputStyle} placeholder="45000" value={form.price} onChange={e => set('price', e.target.value)} />
               </div>
               <div>
@@ -358,6 +379,77 @@ export default function AddBookPage() {
               </div>
             </div>
           </div>
+
+          {/* Chegirma bo'limi */}
+          {(() => {
+            const origNum = Number((form.price || '').replace(/\D/g, '')) || 0;
+            const saleNum = Number((form.salePrice || '').replace(/\D/g, '')) || 0;
+            const autoPercent = origNum > 0 && saleNum > 0 && saleNum < origNum
+              ? Math.round((1 - saleNum / origNum) * 100)
+              : 0;
+            return (
+              <div style={{
+                background: autoPercent > 0
+                  ? 'linear-gradient(135deg, rgba(239,68,68,0.06), rgba(251,146,60,0.06))'
+                  : 'var(--card-bg)',
+                border: autoPercent > 0
+                  ? '1.5px solid rgba(239,68,68,0.3)'
+                  : '1px solid var(--card-border)',
+                borderRadius: '16px', padding: '1.5rem', backdropFilter: 'blur(8px)',
+                transition: 'all 0.3s'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '1.2rem' }}>🏷️</span>
+                  <h3 style={{ fontWeight: 700, fontSize: '1rem', margin: 0 }}>Chegirma (ixtiyoriy)</h3>
+                  {autoPercent > 0 && (
+                    <span style={{
+                      fontSize: '0.78rem', fontWeight: 700, padding: '3px 10px',
+                      background: 'rgba(239,68,68,0.12)', color: '#ef4444',
+                      borderRadius: '20px', border: '1px solid rgba(239,68,68,0.3)'
+                    }}>-{autoPercent}% chegirma</span>
+                  )}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                  <div>
+                    <label style={labelStyle}>Aksiya narxi (so&apos;m)</label>
+                    <input
+                      style={inputStyle}
+                      placeholder="Masalan: 32000"
+                      value={form.salePrice}
+                      onChange={e => set('salePrice', e.target.value)}
+                    />
+                    {autoPercent > 0 && (
+                      <p style={{ fontSize: '0.78rem', color: '#ef4444', marginTop: '5px', fontWeight: 600 }}>
+                        Avtomatik foiz: {autoPercent}% chegirma
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Chegirma muddati (kun)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="365"
+                      style={inputStyle}
+                      placeholder="Masalan: 7"
+                      value={form.discountDays}
+                      onChange={e => set('discountDays', e.target.value)}
+                    />
+                    {form.discountDays && Number(form.discountDays) > 0 && (
+                      <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '5px' }}>
+                        Aksiya {form.discountDays} kun davom etadi
+                      </p>
+                    )}
+                  </div>
+                </div>
+                {!form.salePrice && (
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.75rem' }}>
+                    💡 Aksiya narxini kiritsangiz, chegirma foizi avtomatik hisoblanadi va aksiyalar sahifasida ko&apos;rinadi
+                  </p>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Description */}
           <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: '16px', padding: '1.5rem', backdropFilter: 'blur(8px)' }}>

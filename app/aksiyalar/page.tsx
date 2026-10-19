@@ -7,91 +7,92 @@ import { motion } from 'framer-motion';
 import {
   Flame,
   Clock,
-  Sparkles,
-  Tag,
-  Copy,
-  Check,
   Percent,
   BookOpen,
-  ArrowRight,
   ShieldCheck,
   Zap,
   Gift,
-  Star
+  Star,
+  Tag
 } from 'lucide-react';
 import { api, Book } from '../lib/api';
 import styles from './page.module.css';
 
-interface PromoCode {
-  code: string;
-  discount: string;
-  title: string;
-  desc: string;
-  tag: string;
+interface DiscountedBook extends Book {
+  discountPercent: number;
+  salePrice: number;
+  originalPrice: number;
+  discountExpiresAt?: string | null;
 }
 
-const PROMO_CODES: PromoCode[] = [
-  {
-    code: 'KITOBLAR20',
-    discount: '20%',
-    title: 'Barcha elektron kitoblarga',
-    desc: 'Har qanday janrdagi elektron kitoblar uchun cheklovsiz 20% chegirma',
-    tag: 'Ommabop'
-  },
-  {
-    code: 'MUTOLAA30',
-    discount: '30%',
-    title: 'Maxsus oylik aksiya',
-    desc: '2 ta yoki undan ortiq kitob xarid qilganda butun savatchaga 30% chegirma',
-    tag: 'Eng foydali'
-  },
-  {
-    code: 'AUDIOBEPUL',
-    discount: '100%',
-    title: 'Bepul audio format',
-    desc: 'Elektron kitob bilan birga uning to‘liq audio talqini mutlaqo bepul taqdim etiladi',
-    tag: 'Sovg‘a'
+function parsePrice(priceStr: string): number {
+  if (!priceStr) return 0;
+  return Number(String(priceStr).replace(/[^\d]/g, '')) || 0;
+}
+
+function getDiscountInfo(book: Book): DiscountedBook | null {
+  const originalPrice = parsePrice(book.price || '');
+  const salePriceRaw = parsePrice((book as any).sale_price || (book as any).salePrice || '');
+
+  if (!salePriceRaw || !originalPrice || salePriceRaw >= originalPrice) return null;
+
+  const discountPercent = Math.round((1 - salePriceRaw / originalPrice) * 100);
+  if (discountPercent < 1) return null;
+
+  const expiresAt = (book as any).discount_expires_at || (book as any).discountExpiresAt || null;
+
+  // If discount is expired — skip
+  if (expiresAt) {
+    const expDate = new Date(expiresAt);
+    if (expDate < new Date()) return null;
   }
-];
+
+  return {
+    ...book,
+    discountPercent,
+    salePrice: salePriceRaw,
+    originalPrice,
+    discountExpiresAt: expiresAt,
+  };
+}
+
+function CountdownTimer({ expiresAt }: { expiresAt: string }) {
+  const calcLeft = () => {
+    const diff = new Date(expiresAt).getTime() - Date.now();
+    if (diff <= 0) return { d: 0, h: 0, m: 0, s: 0 };
+    const d = Math.floor(diff / 86400000);
+    const h = Math.floor((diff % 86400000) / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+    return { d, h, m, s };
+  };
+  const [left, setLeft] = useState(calcLeft);
+  useEffect(() => {
+    const t = setInterval(() => setLeft(calcLeft()), 1000);
+    return () => clearInterval(t);
+  }, [expiresAt]);
+
+  return (
+    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', fontSize: '0.75rem', color: '#f87171', fontWeight: 700 }}>
+      <Clock size={13} />
+      {left.d > 0 && <span>{left.d}k </span>}
+      <span>{String(left.h).padStart(2, '0')}:{String(left.m).padStart(2, '0')}:{String(left.s).padStart(2, '0')}</span>
+    </div>
+  );
+}
 
 export default function AksiyalarPage() {
-  const [books, setBooks] = useState<Book[]>([]);
+  const [discountedBooks, setDiscountedBooks] = useState<DiscountedBook[]>([]);
   const [loading, setLoading] = useState(true);
-  const [copiedCode, setCopiedCode] = useState<string | null>(null);
-  const [toast, setToast] = useState('');
-
-  // Countdown timer state: 3 kunlik joriy aksiya
-  const [timeLeft, setTimeLeft] = useState({
-    days: 2,
-    hours: 14,
-    minutes: 38,
-    seconds: 45
-  });
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev.seconds > 0) {
-          return { ...prev, seconds: prev.seconds - 1 };
-        } else if (prev.minutes > 0) {
-          return { ...prev, minutes: 59, seconds: 59 };
-        } else if (prev.hours > 0) {
-          return { ...prev, hours: prev.hours - 1, minutes: 59, seconds: 59 };
-        } else if (prev.days > 0) {
-          return { ...prev, days: prev.days - 1, hours: 23, minutes: 59, seconds: 59 };
-        }
-        return { days: 0, hours: 0, minutes: 0, seconds: 0 };
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, []);
 
   useEffect(() => {
     async function load() {
       try {
         const data = await api.getBooks();
-        setBooks(data || []);
+        const withDiscount: DiscountedBook[] = (data || [])
+          .map(getDiscountInfo)
+          .filter(Boolean) as DiscountedBook[];
+        setDiscountedBooks(withDiscount);
       } catch (err) {
         console.error("Aksiyalar kitoblarini yuklashda xatolik:", err);
       } finally {
@@ -101,41 +102,8 @@ export default function AksiyalarPage() {
     load();
   }, []);
 
-  const handleCopyCode = async (code: string) => {
-    try {
-      await navigator.clipboard.writeText(code);
-      setCopiedCode(code);
-      setToast(`Promokod nusxa olindi: ${code}`);
-      setTimeout(() => {
-        setCopiedCode(null);
-        setToast('');
-      }, 2500);
-    } catch {
-      setToast('Nusxa olishda xatolik');
-      setTimeout(() => setToast(''), 2000);
-    }
-  };
-
-  // Chegirmali narxni hisoblash yordamchisi
-  const calculateSalePrice = (priceStr: string, discountPercent: number) => {
-    const num = parseFloat(priceStr.replace(/[^\d.-]/g, '')) || 50000;
-    const saleNum = Math.round(num * (1 - discountPercent / 100));
-    return {
-      original: `${Math.round(num).toLocaleString('uz-UZ')} so'm`,
-      sale: `${saleNum.toLocaleString('uz-UZ')} so'm`
-    };
-  };
-
   return (
     <main className={styles.page}>
-      {/* Toast */}
-      {toast && (
-        <div className={styles.toast}>
-          <Check size={18} />
-          <span>{toast}</span>
-        </div>
-      )}
-
       {/* Hero Section */}
       <section className={styles.hero}>
         <motion.div
@@ -149,100 +117,23 @@ export default function AksiyalarPage() {
             Cheklangan vaqtdagi aksiyalar
           </div>
           <h1 className={styles.title}>
-            Eng sara kitoblarga <br /> 40% gacha qaynoq chegirmalar!
+            Eng sara kitoblarga <br /> maxsus chegirmalar!
           </h1>
           <p className={styles.subtitle}>
-            Mutolaa zavqini his eting! Sevimli kitoblaringizni maxsus narxlarda xarid qiling yoki
-            eksklyuziv promokodlardan foydalanib chegirmaga ega bo‘ling.
+            Admin tomonidan belgilangan haqiqiy chegirmalar. Chegirma muddati tugashidan oldin xarid qiling!
           </p>
-
-          {/* Jonli Taymer */}
-          <div className={styles.timerWrapper}>
-            <div className={styles.timerLabel}>
-              <Clock size={16} />
-              Aksiya yakunlanishiga qoldi:
-            </div>
-            <div className={styles.timerGrid}>
-              <div className={styles.timerBox}>
-                <span className={styles.timerNum}>{String(timeLeft.days).padStart(2, '0')}</span>
-                <span className={styles.timerUnit}>Kun</span>
-              </div>
-              <span className={styles.timerColon}>:</span>
-              <div className={styles.timerBox}>
-                <span className={styles.timerNum}>{String(timeLeft.hours).padStart(2, '0')}</span>
-                <span className={styles.timerUnit}>Soat</span>
-              </div>
-              <span className={styles.timerColon}>:</span>
-              <div className={styles.timerBox}>
-                <span className={styles.timerNum}>{String(timeLeft.minutes).padStart(2, '0')}</span>
-                <span className={styles.timerUnit}>Daqiqa</span>
-              </div>
-              <span className={styles.timerColon}>:</span>
-              <div className={styles.timerBox}>
-                <span className={styles.timerNum}>{String(timeLeft.seconds).padStart(2, '0')}</span>
-                <span className={styles.timerUnit}>Soniya</span>
-              </div>
-            </div>
-          </div>
         </motion.div>
       </section>
 
       <div className={styles.container}>
-        {/* Promokodlar Bo'limi */}
-        <section>
-          <div className={styles.sectionHeader}>
-            <span className={styles.sectionBadge}>Kuponlar & Bonuslar</span>
-            <h2 className={styles.sectionTitle}>Aktiv promokodlar</h2>
-            <p className={styles.sectionSubtitle}>Promokoddan nusxa oling va to‘lov paytida kiritib chegirmaga ega bo‘ling</p>
-          </div>
-
-          <div className={styles.promoGrid}>
-            {PROMO_CODES.map((promo, idx) => (
-              <motion.div
-                key={promo.code}
-                className={styles.promoCard}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: idx * 0.1 }}
-              >
-                <div>
-                  <div className={styles.promoCardTop}>
-                    <span className={styles.promoDiscount}>-{promo.discount}</span>
-                    <span className={styles.promoTag}>{promo.tag}</span>
-                  </div>
-                  <h3 className={styles.promoTitle}>{promo.title}</h3>
-                  <p className={styles.promoDesc}>{promo.desc}</p>
-                </div>
-
-                <div className={styles.codeBox}>
-                  <span className={styles.codeText}>{promo.code}</span>
-                  <button
-                    className={styles.copyBtn}
-                    onClick={() => handleCopyCode(promo.code)}
-                    aria-label="Kodni nusxalash"
-                  >
-                    {copiedCode === promo.code ? (
-                      <>
-                        <Check size={14} /> Nusxalandi
-                      </>
-                    ) : (
-                      <>
-                        <Copy size={14} /> Nusxa olish
-                      </>
-                    )}
-                  </button>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </section>
-
         {/* Aksiyadagi Kitoblar Katalogi */}
         <section>
           <div className={styles.sectionHeader}>
             <span className={styles.sectionBadge}>Maxsus Narxlar</span>
             <h2 className={styles.sectionTitle}>Aksiya doirasidagi kitoblar</h2>
-            <p className={styles.sectionSubtitle}>Hozirgi vaqtda eng katta chegirmaga ega sara asarlar</p>
+            <p className={styles.sectionSubtitle}>
+              Hozirgi vaqtda chegirmaga ega kitoblar — chegirma adminda belgilanadi
+            </p>
           </div>
 
           {loading ? (
@@ -258,158 +149,101 @@ export default function AksiyalarPage() {
                 </div>
               ))}
             </div>
+          ) : discountedBooks.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              style={{
+                textAlign: 'center',
+                padding: '5rem 2rem',
+                background: 'var(--card-bg)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '20px'
+              }}
+            >
+              <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🏷️</div>
+              <h3 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: '0.5rem' }}>
+                Hozircha aktiv aksiya yo&apos;q
+              </h3>
+              <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', margin: '0 auto 1.5rem' }}>
+                Admin panel orqali kitoblarga chegirma qo&apos;shilgandan so&apos;ng aksiyalar bu yerda avtomatik ko&apos;rinadi.
+              </p>
+              <Link
+                href="/books"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '8px',
+                  padding: '10px 22px', background: 'linear-gradient(135deg, var(--accent-blue), var(--accent-purple))',
+                  borderRadius: '10px', color: '#fff', fontWeight: 700, textDecoration: 'none', fontSize: '0.92rem'
+                }}
+              >
+                <BookOpen size={16} /> Barcha kitoblar
+              </Link>
+            </motion.div>
           ) : (
             <div className={styles.booksGrid}>
-              {books.map((book, index) => {
-                // Har bir kitobga 20% dan 35% gacha chegirma beramiz
-                const discounts = [30, 25, 35, 20, 25, 30];
-                const disc = discounts[index % discounts.length];
-                const priceObj = calculateSalePrice(book.price || '50000', disc);
+              {discountedBooks.map((book, index) => (
+                <motion.div
+                  key={book.id}
+                  className={styles.bookCard}
+                  initial={{ opacity: 0, y: 25 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.4, delay: (index % 4) * 0.1 }}
+                >
+                  <div className={styles.discountRibbon}>
+                    <Percent size={13} />
+                    -{book.discountPercent}% AKSIYA
+                  </div>
 
-                return (
-                  <motion.div
-                    key={book.id}
-                    className={styles.bookCard}
-                    initial={{ opacity: 0, y: 25 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.4, delay: (index % 4) * 0.1 }}
-                  >
-                    <div className={styles.discountRibbon}>
-                      <Percent size={13} />
-                      -{disc}% AKSIYA
+                  <Link href={`/book/${book.id}`} className={styles.imageWrapper}>
+                    <Image
+                      src={book.image}
+                      alt={book.title}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 300px"
+                      className={styles.bookImg}
+                      unoptimized
+                    />
+                  </Link>
+
+                  <div className={styles.bookBody}>
+                    <div>
+                      <div className={styles.bookMeta}>
+                        <span className={styles.bookCategory}>{book.category || 'Adabiyot'}</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '3px', color: '#f59e0b', fontWeight: 600 }}>
+                          <Star size={13} fill="#f59e0b" color="#f59e0b" />
+                          {book.rating || 5}
+                        </span>
+                      </div>
+                      <Link href={`/book/${book.id}`} style={{ textDecoration: 'none' }}>
+                        <h3 className={styles.bookTitle}>{book.title}</h3>
+                      </Link>
+                      <p className={styles.bookAuthor}>{book.author}</p>
                     </div>
 
-                    <Link href={`/book/${book.id}`} className={styles.imageWrapper}>
-                      <Image
-                        src={book.image}
-                        alt={book.title}
-                        fill
-                        sizes="(max-width: 768px) 100vw, 300px"
-                        className={styles.bookImg}
-                        unoptimized
-                      />
-                    </Link>
-
-                    <div className={styles.bookBody}>
-                      <div>
-                        <div className={styles.bookMeta}>
-                          <span className={styles.bookCategory}>{book.category || 'Adabiyot'}</span>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '3px', color: '#f59e0b', fontWeight: 600 }}>
-                            <Star size={13} fill="#f59e0b" color="#f59e0b" />
-                            {book.rating || 5}
-                          </span>
+                    <div>
+                      {book.discountExpiresAt && (
+                        <div style={{ marginBottom: '6px' }}>
+                          <CountdownTimer expiresAt={book.discountExpiresAt} />
                         </div>
-                        <Link href={`/book/${book.id}`} style={{ textDecoration: 'none' }}>
-                          <h3 className={styles.bookTitle}>{book.title}</h3>
-                        </Link>
-                        <p className={styles.bookAuthor}>{book.author}</p>
+                      )}
+                      <div className={styles.priceRow}>
+                        <span className={styles.salePrice}>
+                          {book.salePrice.toLocaleString('uz-UZ')} so&apos;m
+                        </span>
+                        <span className={styles.oldPrice}>
+                          {book.originalPrice.toLocaleString('uz-UZ')} so&apos;m
+                        </span>
                       </div>
-
-                      <div>
-                        <div className={styles.priceRow}>
-                          <span className={styles.salePrice}>{priceObj.sale}</span>
-                          <span className={styles.oldPrice}>{priceObj.original}</span>
-                        </div>
-                        <Link href={`/book/${book.id}`} className={styles.cardBtn}>
-                          <BookOpen size={16} /> Batafsil & Xarid
-                        </Link>
-                      </div>
+                      <Link href={`/book/${book.id}`} className={styles.cardBtn}>
+                        <BookOpen size={16} /> Batafsil &amp; Xarid
+                      </Link>
                     </div>
-                  </motion.div>
-                );
-              })}
+                  </div>
+                </motion.div>
+              ))}
             </div>
           )}
-        </section>
-
-        {/* Maxsus To'plamlar (Bundles) */}
-        <section>
-          <div className={styles.sectionHeader}>
-            <span className={styles.sectionBadge}>Katta Tejash</span>
-            <h2 className={styles.sectionTitle}>Maxsus kombinatsiya to‘plamlari</h2>
-            <p className={styles.sectionSubtitle}>Bir nechta kitoblarni birgalikda oling va 40% gacha tejang</p>
-          </div>
-
-          <div className={styles.bundleGrid}>
-            <motion.div
-              className={styles.bundleCard}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.4 }}
-            >
-              <div>
-                <span className={styles.promoTag} style={{ marginBottom: '10px', display: 'inline-block' }}>Top Tanlov</span>
-                <h3 className={styles.bundleTitle}>Shaxsiy rivojlanish va Psixologiya</h3>
-                <p className={styles.promoDesc}>Muvaffaqiyat, fikrlash va ichki xotirjamlik haqidagi 3 ta eng kuchli kitoblar to‘plami</p>
-
-                <ul className={styles.bundleFeatures}>
-                  <li className={styles.bundleFeature}>
-                    <Check size={16} color="#10b981" /> &quot;Seniki bo‘lgan seni topadi&quot;
-                  </li>
-                  <li className={styles.bundleFeature}>
-                    <Check size={16} color="#10b981" /> &quot;Ko‘zlaringni haromdan saqla&quot;
-                  </li>
-                  <li className={styles.bundleFeature}>
-                    <Check size={16} color="#10b981" /> &quot;Arosat&quot; (Psixologik asar)
-                  </li>
-                  <li className={styles.bundleFeature}>
-                    <Check size={16} color="#10b981" /> Barcha kitoblarga audio format bepul
-                  </li>
-                </ul>
-              </div>
-
-              <div>
-                <div className={styles.bundlePriceBox}>
-                  <span className={styles.bundleSalePrice}>99 000 so&apos;m</span>
-                  <span className={styles.bundleOldPrice}>165 000 so&apos;m</span>
-                </div>
-                <Link href="/search" className={styles.cardBtn} style={{ background: '#f59e0b', color: '#000' }}>
-                  <Zap size={16} /> To‘plamni olish (-40%)
-                </Link>
-              </div>
-            </motion.div>
-
-            <motion.div
-              className={styles.bundleCard}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: 0.15 }}
-            >
-              <div>
-                <span className={styles.promoTag} style={{ marginBottom: '10px', display: 'inline-block', background: 'rgba(79, 142, 247, 0.15)', color: '#4f8ef7' }}>Badiiy Meros</span>
-                <h3 className={styles.bundleTitle}>Badiiy asarlar durdonalari</h3>
-                <p className={styles.promoDesc}>O‘zbek va jahon badiiy adabiyotining eng yuksak tuyg‘ularga boy asarlari to‘plami</p>
-
-                <ul className={styles.bundleFeatures}>
-                  <li className={styles.bundleFeature}>
-                    <Check size={16} color="#4f8ef7" /> &quot;Odam bo‘lish qiyin&quot;
-                  </li>
-                  <li className={styles.bundleFeature}>
-                    <Check size={16} color="#4f8ef7" /> &quot;Binafsha shu‘lasi&quot; (2-qism)
-                  </li>
-                  <li className={styles.bundleFeature}>
-                    <Check size={16} color="#4f8ef7" /> Yuqori sifatli matn va qulay o‘quvchi
-                  </li>
-                  <li className={styles.bundleFeature}>
-                    <Check size={16} color="#4f8ef7" /> Cheksiz umrbod mutolaa imkoniyati
-                  </li>
-                </ul>
-              </div>
-
-              <div>
-                <div className={styles.bundlePriceBox}>
-                  <span className={styles.bundleSalePrice}>75 000 so&apos;m</span>
-                  <span className={styles.bundleOldPrice}>120 000 so&apos;m</span>
-                </div>
-                <Link href="/search" className={styles.cardBtn}>
-                  <Gift size={16} /> To‘plamni olish (-35%)
-                </Link>
-              </div>
-            </motion.div>
-          </div>
         </section>
 
         {/* Afzalliklar va Kafolatlar */}
@@ -427,7 +261,12 @@ export default function AksiyalarPage() {
           <div>
             <ShieldCheck size={32} color="#10b981" style={{ margin: '0 auto 10px' }} />
             <h4 style={{ margin: '0 0 6px', fontWeight: 700 }}>100% Kafolatlangan sifat</h4>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Barcha asarlar to‘liq va sifatli tahrirdan o‘tgan</p>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Barcha asarlar to&apos;liq va sifatli tahrirdan o&apos;tgan</p>
+          </div>
+          <div>
+            <Tag size={32} color="#9b6dff" style={{ margin: '0 auto 10px' }} />
+            <h4 style={{ margin: '0 0 6px', fontWeight: 700 }}>Haqiqiy chegirmalar</h4>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Chegirmalar admin panel orqali belgilanadi va muddatli bo&apos;ladi</p>
           </div>
           <div>
             <Zap size={32} color="#f59e0b" style={{ margin: '0 auto 10px' }} />
@@ -435,7 +274,7 @@ export default function AksiyalarPage() {
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Xarid qilgan zahotingiz darhol mutolaani boshlaysiz</p>
           </div>
           <div>
-            <Gift size={32} color="#9b6dff" style={{ margin: '0 auto 10px' }} />
+            <Gift size={32} color="#f43f5e" style={{ margin: '0 auto 10px' }} />
             <h4 style={{ margin: '0 0 6px', fontWeight: 700 }}>Doimiy yangi aksiyalar</h4>
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Har haftada yangi kitoblarga maxsus chegirmalar</p>
           </div>
