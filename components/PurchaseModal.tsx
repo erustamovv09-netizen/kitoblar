@@ -159,7 +159,7 @@ function parseNumericPrice(val: string | number | null | undefined): number {
 
 export default function PurchaseModal({ isOpen, onClose, book, initialFormat = 'electronic', onSuccess }: PurchaseModalProps) {
   const [selectedFormat, setSelectedFormat] = useState<'electronic' | 'paper'>(initialFormat);
-  const [region, setRegion] = useState('Toshkent shahri');
+  const [region, setRegion] = useState('Toshkent');
   const [address, setAddress] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card');
   const [userName, setUserName] = useState('');
@@ -194,7 +194,7 @@ export default function PurchaseModal({ isOpen, onClose, book, initialFormat = '
         const savedPhone = localStorage.getItem('user_phone') || '+998 ';
         setUserName(savedName);
         setPhone(savedPhone.length > 5 ? savedPhone : '+998 ');
-      } catch {}
+      } catch { }
       setIsSuccess(false);
       setError('');
       setLoading(false);
@@ -277,25 +277,27 @@ export default function PurchaseModal({ isOpen, onClose, book, initialFormat = '
     e.preventDefault();
     setError('');
 
-    const cleanPhone = phone.replace(/[^\d]/g, '');
-    if (cleanPhone.length < 9) {
-      setError("Iltimos, to'liq telefon raqamingizni kiriting (+998 ...)");
-      return;
-    }
-
     if (!userName.trim()) {
       setError("Iltimos, ism-sharifingizni kiriting");
       return;
     }
 
+    if (selectedFormat === 'paper') {
+      const cleanPhone = phone.replace(/[^\d]/g, '');
+      if (cleanPhone.length < 9) {
+        setError("Iltimos, kuryer bog'lanishi uchun to'liq telefon raqamingizni kiriting (+998 ...)");
+        return;
+      }
+
+      if (!address.trim()) {
+        setError("Iltimos, yetkazib berish manzilini to'liq kiriting");
+        return;
+      }
+    }
+
     const cleanCardLast4 = senderCardLast4.replace(/\D/g, '').slice(0, 4);
     if (cleanCardLast4.length !== 4) {
       setError("Iltimos, o'tkazma qilgan kartangizning oxirgi 4 ta raqamini kiriting (masalan: 4421)");
-      return;
-    }
-
-    if (selectedFormat === 'paper' && !address.trim()) {
-      setError("Iltimos, yetkazib berish manzilini to'liq kiriting");
       return;
     }
 
@@ -305,10 +307,12 @@ export default function PurchaseModal({ isOpen, onClose, book, initialFormat = '
       const receipt = `AKS-${Math.floor(100000 + Math.random() * 900000)}`;
       setReceiptNumber(receipt);
 
-      // Save user phone & address for future
-      localStorage.setItem('user_phone', phone);
-      if (address.trim()) {
-        localStorage.setItem('user_address', `${region}, ${address.trim()}`);
+      // Save user phone & address for future if paper delivery
+      if (selectedFormat === 'paper') {
+        localStorage.setItem('user_phone', phone);
+        if (address.trim()) {
+          localStorage.setItem('user_address', `${region}, ${address.trim()}`);
+        }
       }
 
       // 1. Save to pending_orders in localStorage (DO NOT grant free access yet!)
@@ -364,7 +368,7 @@ export default function PurchaseModal({ isOpen, onClose, book, initialFormat = '
           paymentMethod,
           userName: userName.trim() || 'Foydalanuvchi',
           userEmail: userSessionEmail,
-          userPhone: phone.trim(),
+          userPhone: selectedFormat === 'paper' ? phone.trim() : '',
           senderCardLast4: cleanCardLast4,
           receiptImage: receiptImage || undefined,
           deliveryAddress: selectedFormat === 'paper' ? `${region}, ${address.trim()}` : null,
@@ -574,14 +578,13 @@ export default function PurchaseModal({ isOpen, onClose, book, initialFormat = '
               {selectedFormat === 'paper' && (
                 <div className={styles.paperDeliverySection}>
                   <div className={styles.inputField}>
-                    <label className={styles.inputLabel}>Viloyat / Shahar</label>
+                    <label className={styles.inputLabel}>Viloyat</label>
                     <select
                       className={styles.inputControl}
                       value={region}
                       onChange={(e) => setRegion(e.target.value)}
                     >
-                      <option value="Toshkent shahri">Toshkent shahri</option>
-                      <option value="Toshkent viloyati">Toshkent viloyati</option>
+                      <option value="Toshkent">Toshkent viloyati</option>
                       <option value="Samarqand">Samarqand viloyati</option>
                       <option value="Buxoro">Buxoro viloyati</option>
                       <option value="Farg'ona">Farg&apos;ona viloyati</option>
@@ -593,7 +596,6 @@ export default function PurchaseModal({ isOpen, onClose, book, initialFormat = '
                       <option value="Navoiy">Navoiy viloyati</option>
                       <option value="Jizzax">Jizzax viloyati</option>
                       <option value="Sirdaryo">Sirdaryo viloyati</option>
-                      <option value="Qoraqalpog'iston">Qoraqalpog&apos;iston Respublikasi</option>
                     </select>
                   </div>
 
@@ -606,6 +608,20 @@ export default function PurchaseModal({ isOpen, onClose, book, initialFormat = '
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
                       placeholder="Tuman, ko'cha, uy/xonadon raqami"
+                    />
+                  </div>
+
+                  <div className={styles.inputField}>
+                    <label className={styles.inputLabel}>
+                      Telefon raqamingiz <span style={{ color: '#f59e0b', fontWeight: 700 }}>(Kuryer bog&apos;lanishi uchun *)</span>
+                    </label>
+                    <input
+                      type="text"
+                      required={selectedFormat === 'paper'}
+                      className={styles.inputControl}
+                      value={phone}
+                      onChange={handlePhoneChange}
+                      placeholder="+998 90 123 45 67"
                     />
                   </div>
                 </div>
@@ -802,7 +818,7 @@ export default function PurchaseModal({ isOpen, onClose, book, initialFormat = '
                 );
               })()}
 
-              {/* Buyer Phone & Name */}
+              {/* Buyer Name */}
               <div className={styles.inputField}>
                 <label className={styles.inputLabel}>Ism-sharifingiz</label>
                 <input
@@ -812,18 +828,6 @@ export default function PurchaseModal({ isOpen, onClose, book, initialFormat = '
                   value={userName}
                   onChange={(e) => setUserName(e.target.value)}
                   placeholder="Ismingizni kiriting"
-                />
-              </div>
-
-              <div className={styles.inputField}>
-                <label className={styles.inputLabel}>Telefon raqamingiz (Bog&apos;lanish va faollashtirish uchun)</label>
-                <input
-                  type="text"
-                  required
-                  className={styles.inputControl}
-                  value={phone}
-                  onChange={handlePhoneChange}
-                  placeholder="+998 90 123 45 67"
                 />
               </div>
 

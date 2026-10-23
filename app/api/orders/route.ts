@@ -123,8 +123,7 @@ ${formatIcon} <b>Format:</b> ${formatText}
 ${cardInfo}
 
 👤 <b>Xaridor:</b> ${order.userName}
-📞 <b>Telefon:</b> <a href="tel:${order.userPhone}">${order.userPhone}</a>
-${order.userEmail ? `📧 <b>Email:</b> ${order.userEmail}\n` : ''}${order.deliveryAddress ? `📍 <b>Yetkazish manzili:</b> ${order.deliveryAddress}\n` : ''}🕒 <b>Vaqti:</b> ${formattedDate}
+${order.userPhone && order.userPhone !== 'Elektron xarid' && order.userPhone !== '+998' ? `📞 <b>Telefon:</b> <a href="tel:${order.userPhone}">${order.userPhone}</a>\n` : ''}${order.userEmail ? `📧 <b>Email:</b> ${order.userEmail}\n` : ''}${order.deliveryAddress ? `📍 <b>Yetkazish manzili:</b> ${order.deliveryAddress}\n` : ''}🕒 <b>Vaqti:</b> ${formattedDate}
 📊 <b>Holati:</b> ${statusText}
 
 💡 <b>QANDAY TASDIQLAYSAN?</b>
@@ -325,11 +324,11 @@ export async function POST(req: NextRequest) {
       paymentMethod: body.paymentMethod || 'card',
       userName: String(body.userName).trim(),
       userEmail: body.userEmail ? String(body.userEmail).trim() : '',
-      userPhone: String(body.userPhone || '+998 ').trim(),
+      userPhone: String(body.userPhone || (format === 'paper' ? '+998 ' : '')).trim(),
       senderCardLast4: body.senderCardLast4 ? String(body.senderCardLast4).replace(/\D/g, '').slice(0, 4) : undefined,
       receiptImage: savedReceiptPath || (typeof body.receiptImage === 'string' && !body.receiptImage.startsWith('data:') ? body.receiptImage : undefined),
       deliveryAddress: format === 'paper' ? (body.deliveryAddress || '') : null,
-      region: format === 'paper' ? (body.region || 'Toshkent shahri') : null,
+      region: format === 'paper' ? (body.region || 'Toshkent') : null,
       status: initialStatus,
       statusLabel: initialStatusLabel,
       createdAt: body.createdAt || new Date().toISOString(),
