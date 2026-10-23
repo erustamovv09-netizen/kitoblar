@@ -36,6 +36,8 @@ import {
     RefreshCw,
     CheckCircle2,
     ChevronRight,
+    ChevronDown,
+    ChevronUp,
     ExternalLink,
     Headphones
 } from 'lucide-react';
@@ -125,6 +127,7 @@ export default function AccountPage() {
     const [orders, setOrders] = useState<OrderItemDisplay[]>([]);
     const [ordersLoading, setOrdersLoading] = useState(false);
     const [orderFilter, setOrderFilter] = useState<'all' | 'pending' | 'completed'>('all');
+    const [ordersVisibleLimit, setOrdersVisibleLimit] = useState<number>(6);
     const [copiedReceipt, setCopiedReceipt] = useState<string | null>(null);
     const [orderRefreshing, setOrderRefreshing] = useState(false);
 
@@ -1353,24 +1356,24 @@ export default function AccountPage() {
                                             {/* Filter Pills */}
                                             {orders.length > 0 && (
                                                 <div className={styles.ordersFiltersRow} style={{ marginTop: '0.75rem', marginBottom: '1.25rem' }}>
-                                                    <button
+                                                    <button 
                                                         type="button"
                                                         className={`${styles.filterPill} ${orderFilter === 'all' ? styles.activeFilterPill : ''}`}
-                                                        onClick={() => setOrderFilter('all')}
+                                                        onClick={() => { setOrderFilter('all'); setOrdersVisibleLimit(6); }}
                                                     >
                                                         Barchasi ({orders.length})
                                                     </button>
-                                                    <button
+                                                    <button 
                                                         type="button"
                                                         className={`${styles.filterPill} ${orderFilter === 'pending' ? styles.activeFilterPill : ''}`}
-                                                        onClick={() => setOrderFilter('pending')}
+                                                        onClick={() => { setOrderFilter('pending'); setOrdersVisibleLimit(6); }}
                                                     >
                                                         ⏳ Tekshirilmoqda ({orders.filter(o => o.status === 'pending').length})
                                                     </button>
-                                                    <button
+                                                    <button 
                                                         type="button"
                                                         className={`${styles.filterPill} ${orderFilter === 'completed' ? styles.activeFilterPill : ''}`}
-                                                        onClick={() => setOrderFilter('completed')}
+                                                        onClick={() => { setOrderFilter('completed'); setOrdersVisibleLimit(6); }}
                                                     >
                                                         ✅ Tasdiqlangan ({orders.filter(o => o.status === 'completed' || o.status === 'delivered').length})
                                                     </button>
@@ -1407,9 +1410,15 @@ export default function AccountPage() {
                                                         );
                                                     }
 
+                                                    const visibleOrders = filtered.slice(0, ordersVisibleLimit);
+                                                    const hasMore = filtered.length > ordersVisibleLimit;
+                                                    const remainingCount = filtered.length - visibleOrders.length;
+                                                    const nextBatch = Math.min(6, remainingCount);
+
                                                     return (
-                                                        <div className={styles.ordersList}>
-                                                            {filtered.map(order => {
+                                                        <>
+                                                            <div className={styles.ordersList}>
+                                                                {visibleOrders.map(order => {
                                                                 const isCompleted = order.status === 'completed' || order.status === 'delivered';
                                                                 const isPending = order.status === 'pending';
                                                                 const isPaper = order.format === 'paper';
@@ -1561,8 +1570,45 @@ export default function AccountPage() {
                                                                 );
                                                             })}
                                                         </div>
-                                                    );
-                                                })()
+
+                                                                {/* Load More Pagination for Orders */}
+                                                                {hasMore && (
+                                                                    <div className={styles.loadMoreContainer}>
+                                                                        <button 
+                                                                            type="button" 
+                                                                            onClick={() => setOrdersVisibleLimit(prev => prev + 6)}
+                                                                            className={styles.loadMoreOrdersBtn}
+                                                                            title="Keyingi 6 ta buyurtmani ko'rish"
+                                                                        >
+                                                                            <ChevronDown size={18} />
+                                                                            <span>Yana ko&apos;rsatish (+{nextBatch} ta)</span>
+                                                                        </button>
+                                                                        <span className={styles.loadMoreCounter}>
+                                                                            {visibleOrders.length} / {filtered.length} ta buyurtma ko&apos;rsatilmoqda
+                                                                        </span>
+                                                                    </div>
+                                                                )}
+
+                                                                {/* If user expanded beyond 6 and reached the end, allow collapsing back to 6 */}
+                                                                {!hasMore && filtered.length > 6 && (
+                                                                    <div className={styles.loadMoreContainer}>
+                                                                        <button 
+                                                                            type="button" 
+                                                                            onClick={() => setOrdersVisibleLimit(6)}
+                                                                            className={styles.collapseOrdersBtn}
+                                                                            title="Boshlang'ich 6 tasiga qaytarish"
+                                                                        >
+                                                                            <ChevronUp size={16} />
+                                                                            <span>Boshlang&apos;ich 6 tasini ko&apos;rsatish</span>
+                                                                        </button>
+                                                                        <span className={styles.loadMoreCounter}>
+                                                                            Barcha {filtered.length} ta buyurtma to&apos;liq ko&apos;rsatildi
+                                                                        </span>
+                                                                    </div>
+                                                                )}
+                                                            </>
+                                                        );
+                                                    })()
                                             )}
                                         </div>
                                     </motion.div>

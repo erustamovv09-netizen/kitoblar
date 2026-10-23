@@ -174,8 +174,8 @@ export default function PurchaseModal({ isOpen, onClose, book, initialFormat = '
   const [receiptNumber, setReceiptNumber] = useState('');
   const [error, setError] = useState('');
 
-  const ADMIN_CARD_NUMBER = process.env.NEXT_PUBLIC_PAYMENT_CARD_NUMBER || '8600 0000 0000 0000';
-  const ADMIN_CARD_HOLDER = process.env.NEXT_PUBLIC_PAYMENT_CARD_HOLDER || 'ELSHOD RUSTAMOV';
+  const ADMIN_CARD_NUMBER = process.env.NEXT_PUBLIC_PAYMENT_CARD_NUMBER || '4916 9903 5491 9521';
+  const ADMIN_CARD_HOLDER = process.env.NEXT_PUBLIC_PAYMENT_CARD_HOLDER || 'ELSHODBEK RUSTAMOV';
   const ADMIN_CARD_BANK = process.env.NEXT_PUBLIC_PAYMENT_BANK || 'Uzum Bank';
 
   // Sync format if initialFormat changes

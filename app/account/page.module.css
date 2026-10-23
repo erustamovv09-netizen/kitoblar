@@ -1631,6 +1631,75 @@
     flex-shrink: 0;
 }
 
+/* Load More & Pagination for Orders */
+.loadMoreContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 1.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px dashed var(--border-color);
+}
+
+.loadMoreOrdersBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 24px;
+    border-radius: 12px;
+    font-size: 0.88rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%);
+    border: 1px solid color-mix(in srgb, var(--user-accent, var(--accent-blue)) 45%, var(--border-color));
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12);
+}
+
+.loadMoreOrdersBtn:hover {
+    background: var(--user-accent, var(--accent-blue));
+    border-color: var(--user-accent, var(--accent-blue));
+    color: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px color-mix(in srgb, var(--user-accent, #3b82f6) 40%, transparent);
+}
+
+.loadMoreOrdersBtn:active {
+    transform: translateY(0);
+}
+
+.collapseOrdersBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 9px 20px;
+    border-radius: 10px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    background: var(--search-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.collapseOrdersBtn:hover {
+    color: var(--text-primary);
+    border-color: rgba(255, 255, 255, 0.25);
+    background: var(--border-color);
+}
+
+.loadMoreCounter {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    letter-spacing: 0.2px;
+}
+
 @media (max-width: 640px) {
     .orderCardBody {
         flex-direction: column;
