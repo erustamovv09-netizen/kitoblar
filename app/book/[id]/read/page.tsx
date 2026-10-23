@@ -136,7 +136,7 @@ export default function BookReaderPage({ params }: { params: Promise<{ id: strin
       window.removeEventListener('storage', verifyAccess);
     };
   }, [bookId]);
-  
+
   // Auth Check - router.replace orqali brauzer tarixida halqa (loop) hosil bo'lishining oldi olinadi
   useEffect(() => {
     const isLogged = localStorage.getItem('username');
@@ -201,7 +201,7 @@ export default function BookReaderPage({ params }: { params: Promise<{ id: strin
           try {
             const list = raw ? JSON.parse(raw) : [];
             bought = Array.isArray(list) && list.some((p: any) => String(p.id) === String(bookId));
-          } catch {}
+          } catch { }
 
           if (bought || idx === 0) {
             setCurrentChapter(idx);
@@ -634,7 +634,7 @@ export default function BookReaderPage({ params }: { params: Promise<{ id: strin
                   <Clock size={20} /> To&apos;lovingiz tekshirilmoqda {pendingReceipt ? `(#${pendingReceipt})` : ''}
                 </div>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0, lineHeight: 1.5 }}>
-                  Siz ushbu kitob uchun to&apos;lov qilgansiz. Admin kartaga pul tushganini tasdiqlashi bilan barcha boblar avtomatik to&apos;liq ochiladi. Odatda bu 1-5 daqiqa vaqt oladi.
+                  Siz ushbu kitob uchun to&apos;lov qilgansiz. Admin kartaga pul tushganini tasdiqlashi bilan barcha boblar avtomatik to&apos;liq ochiladi.
                 </p>
               </div>
             )}

@@ -3,48 +3,74 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { 
-  User, 
-  Mail, 
-  Heart, 
-  Trash2, 
-  Edit3, 
-  LogOut, 
-  CheckCircle, 
-  ArrowLeft, 
-  Calendar, 
-  BookOpen,
-  Settings,
-  AlertCircle,
-  Clock,
-  Sparkles,
-  BarChart2,
-  Bookmark,
-  Check,
-  Flame,
-  Award,
-  BookMarked,
-  MessageSquare,
-  Lock,
-  Plus,
-  Share2,
-  Copy,
-  Quote as QuoteIcon
+import {
+    User,
+    Mail,
+    Heart,
+    Trash2,
+    Edit3,
+    LogOut,
+    CheckCircle,
+    ArrowLeft,
+    Calendar,
+    BookOpen,
+    Settings,
+    AlertCircle,
+    Clock,
+    Sparkles,
+    BarChart2,
+    Bookmark,
+    Check,
+    Flame,
+    Award,
+    BookMarked,
+    MessageSquare,
+    Lock,
+    Plus,
+    Share2,
+    Copy,
+    Quote as QuoteIcon,
+    ShoppingBag,
+    Package,
+    Truck,
+    RefreshCw,
+    CheckCircle2,
+    ChevronRight,
+    ExternalLink,
+    Headphones
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { booksDB } from '../lib/books';
-import { api } from '../lib/api';
+import { api, getStaticBookCover } from '../lib/api';
 import styles from './page.module.css';
 import { restoreUserSession, saveUserSession, clearUserSession } from '../lib/session';
 import { formatUzbekDate, getTodayUzbekDate } from '../lib/date';
 
+export interface OrderItemDisplay {
+    id: string;
+    receiptNumber: string;
+    bookId: string;
+    bookTitle: string;
+    bookAuthor: string;
+    bookImage?: string;
+    format: 'electronic' | 'paper';
+    price: number;
+    paymentMethod: string;
+    senderCardLast4?: string;
+    deliveryAddress?: string | null;
+    userPhone?: string;
+    status: 'pending' | 'completed' | 'processing' | 'delivered' | 'cancelled';
+    statusLabel?: string;
+    createdAt: string;
+}
+
 type Favorite = { id: string; title: string };
 type BookStatus = 'reading' | 'planned' | 'completed';
 type BookStatuses = { [bookId: string]: BookStatus };
-type Quote = { 
-    id: string; 
-    bookId: string; 
-    bookTitle: string; 
+type Quote = {
+    id: string;
+    bookId: string;
+    bookTitle: string;
     text: string;
     page?: string;
     date?: string;
@@ -75,25 +101,32 @@ export default function AccountPage() {
     const [editing, setEditing] = useState(false);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [joinDate, setJoinDate] = useState('');
-    
+
     // Core profile features
     const [favorites, setFavorites] = useState<Favorite[]>([]);
     const [bookStatuses, setBookStatuses] = useState<BookStatuses>({});
     const [quotes, setQuotes] = useState<Quote[]>([]);
-    
+
     // Accent and Avatar
     const [accent, setAccent] = useState<'blue' | 'purple' | 'emerald' | 'amber'>('blue');
     const [avatarEmoji, setAvatarEmoji] = useState('');
     const [showAvatarSelector, setShowAvatarSelector] = useState(false);
-    
+
     // Reading Goal Tracker
     const [dailyGoal, setDailyGoal] = useState<number>(0);
     const [todayProgress, setTodayProgress] = useState<number>(0);
     const [streak, setStreak] = useState<number>(0);
 
     // Active Tab & Activity Timeline
-    const [activeTab, setActiveTab] = useState<'profile' | 'favorites' | 'quotes' | 'history'>('profile');
+    const [activeTab, setActiveTab] = useState<'profile' | 'orders' | 'favorites' | 'quotes' | 'history'>('profile');
     const [activityLog, setActivityLog] = useState<Activity[]>([]);
+
+    // Orders state (Buyurtmalarim)
+    const [orders, setOrders] = useState<OrderItemDisplay[]>([]);
+    const [ordersLoading, setOrdersLoading] = useState(false);
+    const [orderFilter, setOrderFilter] = useState<'all' | 'pending' | 'completed'>('all');
+    const [copiedReceipt, setCopiedReceipt] = useState<string | null>(null);
+    const [orderRefreshing, setOrderRefreshing] = useState(false);
 
     // Form inputs for Quote
     const [quoteText, setQuoteText] = useState('');
@@ -117,17 +150,44 @@ export default function AccountPage() {
     useEffect(() => {
         // Multi-tier session recovery (survives Safari ITP and cache wipe)
         const session = restoreUserSession();
-        const storedName = session?.name || localStorage.getItem('name') || session?.username || localStorage.getItem('username');
+        let storedName = session?.name || localStorage.getItem('name') || session?.username || localStorage.getItem('username');
         const storedEmail = session?.email || localStorage.getItem('email');
         const storedBio = localStorage.getItem('user_bio');
+
+        // Check URL tab parameter immediately
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            const tabParam = params.get('tab');
+            if (tabParam === 'orders' || tabParam === 'buyurtmalar') {
+                setActiveTab('orders');
+            } else if (tabParam === 'favorites' || tabParam === 'quotes' || tabParam === 'history' || tabParam === 'profile') {
+                setActiveTab(tabParam as any);
+            }
+        }
+
+        // If user made a purchase or has orders, let them access account seamlessly
+        if (!storedName) {
+            try {
+                const rawPending = localStorage.getItem('pending_orders');
+                const pList = rawPending ? JSON.parse(rawPending) : [];
+                if (pList.length > 0 && pList[0].userName) {
+                    const fallbackName: string = pList[0].userName;
+                    storedName = fallbackName;
+                    localStorage.setItem('name', fallbackName);
+                } else if (pList.length > 0) {
+                    storedName = 'Kitobxon';
+                    localStorage.setItem('name', 'Kitobxon');
+                }
+            } catch { }
+        }
         const rawFav = localStorage.getItem('favorites');
         const rawStatuses = localStorage.getItem('book_statuses');
         const rawQuotes = localStorage.getItem('book_quotes');
-        
+
         const storedAccent = localStorage.getItem('account_accent');
         const storedAvatar = localStorage.getItem('account_avatar');
         let storedJoin = localStorage.getItem('join_date');
-        
+
         const storedGoal = localStorage.getItem('daily_goal');
         const storedProgress = localStorage.getItem('today_progress');
         const storedStreak = localStorage.getItem('streak');
@@ -138,7 +198,7 @@ export default function AccountPage() {
         }
         if (storedEmail) setEmail(storedEmail);
         if (storedBio) setBio(storedBio);
-        
+
         if (storedAccent && storedAccent in accentColors) {
             setAccent(storedAccent as any);
         }
@@ -179,19 +239,19 @@ export default function AccountPage() {
             if (rawAct) {
                 const parsed = JSON.parse(rawAct);
                 if (Array.isArray(parsed)) {
-                    const filtered = parsed.filter((item: any) => 
-                        !item.text?.toLowerCase().includes('sharh') && 
+                    const filtered = parsed.filter((item: any) =>
+                        !item.text?.toLowerCase().includes('sharh') &&
                         !item.text?.toLowerCase().includes('ballik')
                     );
                     localStorage.setItem('activity_log', JSON.stringify(filtered));
                 }
             }
-        } catch {}
+        } catch { }
 
         // Fetch activity logs from backend API
         api.getActivityLog().then(parsedActivity => {
-            const cleanActivity = (parsedActivity || []).filter(item => 
-                !item.text?.toLowerCase().includes('sharh') && 
+            const cleanActivity = (parsedActivity || []).filter(item =>
+                !item.text?.toLowerCase().includes('sharh') &&
                 !item.text?.toLowerCase().includes('ballik')
             );
             setActivityLog(cleanActivity);
@@ -207,6 +267,296 @@ export default function AccountPage() {
         }).catch(err => {
             console.error("Failed to load books for account page", err);
         });
+    }, []);
+
+    // Helper to format date in Uzbek
+    const formatOrderDate = (dateStr?: string) => {
+        if (!dateStr) return '';
+        try {
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return dateStr;
+            const months = ['yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun', 'iyul', 'avgust', 'sentabr', 'oktabr', 'noyabr', 'dekabr'];
+            const day = d.getDate();
+            const month = months[d.getMonth()];
+            const year = d.getFullYear();
+            const hours = String(d.getHours()).padStart(2, '0');
+            const mins = String(d.getMinutes()).padStart(2, '0');
+            return `${day}-${month}, ${year}, ${hours}:${mins}`;
+        } catch {
+            return dateStr;
+        }
+    };
+
+    // Helper to format payment method
+    const formatPaymentMethod = (method?: string) => {
+        switch (method?.toLowerCase()) {
+            case 'payme': return 'Payme';
+            case 'click': return 'Click';
+            case 'uzum': return 'Uzum Pay';
+            case 'card': return 'Bank kartasi';
+            default: return 'To\'lov tizimi';
+        }
+    };
+
+    // Tab switcher with URL query sync
+    const switchTab = (tab: 'profile' | 'orders' | 'favorites' | 'quotes' | 'history') => {
+        setActiveTab(tab);
+        if (typeof window !== 'undefined') {
+            const url = new URL(window.location.href);
+            url.searchParams.set('tab', tab);
+            window.history.replaceState(null, '', url.toString());
+        }
+    };
+
+    // Copy receipt number to clipboard
+    const copyReceipt = (receipt: string) => {
+        if (typeof navigator !== 'undefined' && navigator.clipboard) {
+            navigator.clipboard.writeText(receipt);
+            setCopiedReceipt(receipt);
+            setTimeout(() => setCopiedReceipt(null), 2000);
+        }
+    };
+
+    // Load and sync orders from localStorage and /api/orders
+    const loadOrders = async (silent = false) => {
+        if (!silent) setOrdersLoading(true);
+        try {
+            // 1. Local pending orders
+            const rawPending = localStorage.getItem('pending_orders');
+            const pendingList: any[] = rawPending ? JSON.parse(rawPending) : [];
+
+            // 2. Local purchased books
+            const rawPurchased = localStorage.getItem('purchased_books');
+            const purchasedList: any[] = rawPurchased ? JSON.parse(rawPurchased) : [];
+
+            // 3. Server orders
+            let serverOrders: any[] = [];
+            try {
+                const res = await fetch('/api/orders').then(r => r.json());
+                if (res && res.success && Array.isArray(res.orders)) {
+                    serverOrders = res.orders;
+                }
+            } catch (e) {
+                console.error('Failed to fetch server orders:', e);
+            }
+
+            // 4. Cross-check pending orders with server updates
+            let updatedPending = [...pendingList];
+            let updatedPurchased = [...purchasedList];
+            let hadChanges = false;
+
+            serverOrders.forEach((so: any) => {
+                const pIdx = updatedPending.findIndex(
+                    p => (p.receiptNumber && p.receiptNumber.replace('#', '') === so.receiptNumber?.replace('#', '')) ||
+                        String(p.bookId) === String(so.bookId)
+                );
+                if (pIdx !== -1) {
+                    if (so.status === 'completed' || so.status === 'delivered') {
+                        const existingPurchased = updatedPurchased.find(b => String(b.id) === String(so.bookId));
+                        if (!existingPurchased) {
+                            updatedPurchased.push({
+                                id: String(so.bookId),
+                                title: so.bookTitle,
+                                author: so.bookAuthor,
+                                format: so.format,
+                                price: so.price,
+                                receiptNumber: so.receiptNumber,
+                                image: so.bookImage,
+                                date: so.createdAt,
+                            });
+                            window.dispatchEvent(new CustomEvent('book-purchased', { detail: { bookId: so.bookId } }));
+                        }
+                        updatedPending.splice(pIdx, 1);
+                        hadChanges = true;
+                    } else if (so.status === 'cancelled') {
+                        updatedPending[pIdx].status = 'cancelled';
+                        hadChanges = true;
+                    }
+                }
+            });
+
+            if (hadChanges) {
+                localStorage.setItem('pending_orders', JSON.stringify(updatedPending));
+                localStorage.setItem('purchased_books', JSON.stringify(updatedPurchased));
+            }
+
+            // 5. Gather relevant receipts
+            const userEmail = (localStorage.getItem('email') || '').toLowerCase().trim();
+            const userPhoneDigits = (localStorage.getItem('user_phone') || '').replace(/\D/g, '').slice(-9);
+
+            const knownReceipts = new Set<string>();
+            updatedPending.forEach(p => p.receiptNumber && knownReceipts.add(p.receiptNumber.replace('#', '')));
+            updatedPurchased.forEach(p => p.receiptNumber && knownReceipts.add(p.receiptNumber.replace('#', '')));
+
+            const matchedServerOrders: OrderItemDisplay[] = serverOrders.filter(so => {
+                const rClean = (so.receiptNumber || '').replace('#', '');
+                if (knownReceipts.has(rClean)) return true;
+                if (userEmail && so.userEmail && so.userEmail.toLowerCase().trim() === userEmail) return true;
+                if (userPhoneDigits && so.userPhone && so.userPhone.replace(/\D/g, '').includes(userPhoneDigits)) return true;
+                return false;
+            }).map(so => ({
+                id: so.id || so.receiptNumber,
+                receiptNumber: so.receiptNumber.startsWith('#') ? so.receiptNumber : `#${so.receiptNumber}`,
+                bookId: String(so.bookId),
+                bookTitle: so.bookTitle,
+                bookAuthor: so.bookAuthor,
+                bookImage: getStaticBookCover(so.bookId, so.bookTitle) || so.bookImage,
+                format: so.format || 'electronic',
+                price: Number(so.price) || 0,
+                paymentMethod: so.paymentMethod || 'card',
+                senderCardLast4: so.senderCardLast4,
+                deliveryAddress: so.deliveryAddress,
+                userPhone: so.userPhone,
+                status: so.status || 'pending',
+                statusLabel: so.statusLabel,
+                createdAt: so.createdAt || new Date().toISOString(),
+            }));
+
+            const merged: OrderItemDisplay[] = [...matchedServerOrders];
+
+            updatedPending.forEach(p => {
+                const cleanR = (p.receiptNumber || '').replace('#', '');
+                if (!merged.some(m => m.receiptNumber.replace('#', '') === cleanR)) {
+                    merged.push({
+                        id: p.id || `pending_${p.bookId}`,
+                        receiptNumber: (p.receiptNumber && p.receiptNumber.startsWith('#')) ? p.receiptNumber : `#${p.receiptNumber || 'AKS-000000'}`,
+                        bookId: String(p.bookId),
+                        bookTitle: p.bookTitle,
+                        bookAuthor: p.bookAuthor,
+                        bookImage: getStaticBookCover(p.bookId, p.bookTitle) || p.image,
+                        format: p.format || 'electronic',
+                        price: Number(p.price) || 0,
+                        paymentMethod: p.paymentMethod || 'card',
+                        senderCardLast4: p.senderCardLast4,
+                        status: p.status || 'pending',
+                        createdAt: p.date || new Date().toISOString(),
+                    });
+                }
+            });
+
+            updatedPurchased.forEach(p => {
+                const cleanR = (p.receiptNumber || '').replace('#', '');
+                if (cleanR && !merged.some(m => m.receiptNumber.replace('#', '') === cleanR)) {
+                    merged.push({
+                        id: `purchased_${p.id}`,
+                        receiptNumber: p.receiptNumber.startsWith('#') ? p.receiptNumber : `#${p.receiptNumber}`,
+                        bookId: String(p.id),
+                        bookTitle: p.title,
+                        bookAuthor: p.author,
+                        bookImage: getStaticBookCover(p.id, p.title) || p.image,
+                        format: p.format || 'electronic',
+                        price: Number(p.price) || 0,
+                        paymentMethod: 'card',
+                        status: 'completed',
+                        statusLabel: "To'langan (Faol)",
+                        createdAt: p.date || new Date().toISOString(),
+                    });
+                }
+            });
+
+            merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            setOrders(merged);
+        } catch (err) {
+            console.error('Error loading orders:', err);
+        } finally {
+            setOrdersLoading(false);
+            setOrderRefreshing(false);
+        }
+    };
+
+    // Check single order status
+    const checkSingleOrderStatus = async (order: OrderItemDisplay) => {
+        setOrderRefreshing(true);
+        try {
+            const cleanReceipt = order.receiptNumber.replace('#', '');
+            const res = await fetch(`/api/orders?receipt=${encodeURIComponent(cleanReceipt)}`).then(r => r.json());
+            if (res && res.order) {
+                const serverOrd = res.order;
+                if (serverOrd.status === 'completed' || serverOrd.status === 'delivered') {
+                    setOrders(prev => prev.map(o => o.receiptNumber === order.receiptNumber ? { ...o, status: 'completed' } : o));
+                    const rawPurchased = localStorage.getItem('purchased_books');
+                    const purchased = rawPurchased ? JSON.parse(rawPurchased) : [];
+                    if (!purchased.some((p: any) => String(p.id) === String(order.bookId))) {
+                        purchased.push({
+                            id: String(order.bookId),
+                            title: order.bookTitle,
+                            author: order.bookAuthor,
+                            format: order.format,
+                            price: order.price,
+                            receiptNumber: order.receiptNumber,
+                            image: order.bookImage,
+                            date: new Date().toISOString(),
+                        });
+                        localStorage.setItem('purchased_books', JSON.stringify(purchased));
+                        window.dispatchEvent(new CustomEvent('book-purchased', { detail: { bookId: order.bookId } }));
+                    }
+                    const rawPending = localStorage.getItem('pending_orders');
+                    if (rawPending) {
+                        const pending = JSON.parse(rawPending).filter((p: any) => String(p.bookId) !== String(order.bookId));
+                        localStorage.setItem('pending_orders', JSON.stringify(pending));
+                    }
+                    setSuccessMessage("To'lov tasdiqlandi! Kitob mutolaa uchun ochildi 🎉");
+                    setTimeout(() => setSuccessMessage(''), 4000);
+                } else if (serverOrd.status === 'cancelled') {
+                    setOrders(prev => prev.map(o => o.receiptNumber === order.receiptNumber ? { ...o, status: 'cancelled' } : o));
+                    setSuccessMessage("Buyurtma bekor qilingan");
+                    setTimeout(() => setSuccessMessage(''), 3000);
+                } else {
+                    setSuccessMessage("To'lov hali tekshirilmoqda. Iltimos, biroz kuting ");
+                    setTimeout(() => setSuccessMessage(''), 3500);
+                }
+            } else {
+                setSuccessMessage("Buyurtma holati yangilandi");
+                setTimeout(() => setSuccessMessage(''), 2500);
+            }
+        } catch (e) {
+            console.error('Check status error:', e);
+        } finally {
+            setOrderRefreshing(false);
+            loadOrders(true);
+        }
+    };
+
+    // Manual refresh button
+    const handleManualRefresh = () => {
+        setOrderRefreshing(true);
+        loadOrders(false);
+        setSuccessMessage("Buyurtmalar yangilandi");
+        setTimeout(() => setSuccessMessage(''), 2500);
+    };
+
+    // Listen to real-time events for instant updates
+    useEffect(() => {
+        loadOrders(true);
+
+        const handleTabFromUrl = () => {
+            const params = new URLSearchParams(window.location.search);
+            const tabParam = params.get('tab');
+            if (tabParam === 'orders' || tabParam === 'buyurtmalar') {
+                setActiveTab('orders');
+            }
+        };
+
+        const handleOrderSubmitted = () => {
+            loadOrders(false);
+            setActiveTab('orders');
+        };
+
+        const handleFocus = () => {
+            loadOrders(true);
+        };
+
+        window.addEventListener('popstate', handleTabFromUrl);
+        window.addEventListener('order-submitted', handleOrderSubmitted);
+        window.addEventListener('book-purchased', handleOrderSubmitted);
+        window.addEventListener('focus', handleFocus);
+
+        return () => {
+            window.removeEventListener('popstate', handleTabFromUrl);
+            window.removeEventListener('order-submitted', handleOrderSubmitted);
+            window.removeEventListener('book-purchased', handleOrderSubmitted);
+            window.removeEventListener('focus', handleFocus);
+        };
     }, []);
 
     useEffect(() => {
@@ -321,9 +671,9 @@ export default function AccountPage() {
         const newProgress = todayProgress + min;
         setTodayProgress(newProgress);
         localStorage.setItem('today_progress', String(newProgress));
-        
+
         let msg = `Bugun yana +${min} daqiqa mutolaa qilindi`;
-        
+
         if (dailyGoal > 0 && todayProgress < dailyGoal && newProgress >= dailyGoal) {
             const newStreak = streak + 1;
             setStreak(newStreak);
@@ -350,10 +700,10 @@ export default function AccountPage() {
         const nextStatuses = { ...bookStatuses, [bookId]: status };
         setBookStatuses(nextStatuses);
         localStorage.setItem('book_statuses', JSON.stringify(nextStatuses));
-        
+
         const book = activeBooksList.find(b => b.id === bookId);
         const title = book?.title || 'Kitob';
-        
+
         let statusText = 'o‘qish rejalashtirildi';
         if (status === 'reading') statusText = 'o‘qish boshlandi';
         if (status === 'completed') statusText = 'to‘liq o‘qib tugatildi';
@@ -384,7 +734,7 @@ export default function AccountPage() {
         const nextQuotes = [newQuote, ...quotes];
         setQuotes(nextQuotes);
         localStorage.setItem('book_quotes', JSON.stringify(nextQuotes));
-        
+
         setQuoteText('');
         setQuoteBookId('');
         setQuotePageNum('');
@@ -413,7 +763,7 @@ export default function AccountPage() {
         const pageInfo = q.page ? ` (${q.page}-bet)` : '';
         const text = `«${q.text}»\n\n— "${q.bookTitle}"${pageInfo}\nKitoblar Portali`;
         if (navigator.share && window.location.protocol === 'https:') {
-            navigator.share({ title: `Iqtibos: ${q.bookTitle}`, text }).catch(() => {});
+            navigator.share({ title: `Iqtibos: ${q.bookTitle}`, text }).catch(() => { });
         } else {
             const tgUrl = `https://t.me/share/url?url=${encodeURIComponent(window.location.origin)}&text=${encodeURIComponent(text)}`;
             window.open(tgUrl, '_blank');
@@ -437,7 +787,7 @@ export default function AccountPage() {
 
     function logout() {
         clearUserSession();
-        
+
         setName('');
         setEmail('');
         setBio('');
@@ -503,11 +853,11 @@ export default function AccountPage() {
 
     return (
         <main className={styles.container} style={{ '--user-accent': accentColors[accent] } as React.CSSProperties}>
-            
+
             {/* Success Toast Notification */}
             <AnimatePresence>
                 {successMessage && (
-                    <motion.div 
+                    <motion.div
                         className={styles.toast}
                         initial={{ opacity: 0, y: -20, scale: 0.9 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -521,7 +871,7 @@ export default function AccountPage() {
 
             {(!isLoggedIn) ? (
                 /* Auth Screen */
-                <motion.div 
+                <motion.div
                     className={styles.authContainer}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -533,14 +883,14 @@ export default function AccountPage() {
                         </div>
                         <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Profilga kirish</h1>
                         <p className={styles.authSubtitle}>Kitoblarni sevimlilarga qo'shish va sozlamalarni saqlash uchun profilingizni yarating.</p>
-                        
+
                         <div style={{ textAlign: 'center', marginTop: '2rem' }}>
-                            <Link href="/login" style={{ 
-                                display: 'inline-block', 
-                                background: '#3b82f6', 
-                                color: 'white', 
-                                padding: '12px 24px', 
-                                borderRadius: '8px', 
+                            <Link href="/login" style={{
+                                display: 'inline-block',
+                                background: '#3b82f6',
+                                color: 'white',
+                                padding: '12px 24px',
+                                borderRadius: '8px',
                                 textDecoration: 'none',
                                 fontWeight: 600
                             }}>
@@ -554,7 +904,7 @@ export default function AccountPage() {
                 </motion.div>
             ) : (
                 /* Cabinet Dashboard Layout */
-                <motion.div 
+                <motion.div
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4 }}
@@ -581,7 +931,7 @@ export default function AccountPage() {
                             {/* Avatar selector panel */}
                             <AnimatePresence>
                                 {showAvatarSelector && (
-                                    <motion.div 
+                                    <motion.div
                                         initial={{ opacity: 0, y: -10 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         exit={{ opacity: 0, y: -10 }}
@@ -590,7 +940,7 @@ export default function AccountPage() {
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', padding: '0 4px' }}>
                                             <span className={styles.accentTitle}>Avatar tanlang:</span>
                                             {avatarEmoji && (
-                                                <button 
+                                                <button
                                                     onClick={removeAvatarEmoji}
                                                     style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: 600, border: 'none', background: 'none', cursor: 'pointer' }}
                                                 >
@@ -600,8 +950,8 @@ export default function AccountPage() {
                                         </div>
                                         <div className={styles.avatarGrid}>
                                             {emojiAvatars.map(emoji => (
-                                                <button 
-                                                    key={emoji} 
+                                                <button
+                                                    key={emoji}
                                                     className={`${styles.avatarOption} ${avatarEmoji === emoji ? styles.avatarOptionActive : ''}`}
                                                     onClick={() => selectAvatar(emoji)}
                                                 >
@@ -616,7 +966,7 @@ export default function AccountPage() {
                             <div className={styles.profileInfo}>
                                 <h2 className={styles.name}>{name || 'Foydalanuvchi'}</h2>
                                 <p className={styles.email}>{email || 'Email kiritilmagan'}</p>
-                                
+
                                 <div className={styles.statsRow}>
                                     <div className={styles.statItem}>
                                         <span className={styles.statVal}>{favorites.length}</span>
@@ -673,8 +1023,8 @@ export default function AccountPage() {
                                 </div>
                                 <div className={styles.badgeGrid}>
                                     {getAchievements().map(badge => (
-                                        <div 
-                                            key={badge.id} 
+                                        <div
+                                            key={badge.id}
                                             className={`${styles.badgeItem} ${!badge.unlocked ? styles.badgeLocked : styles.badgeUnlockedActive}`}
                                             onClick={() => setSelectedBadge(badge)}
                                             role="button"
@@ -693,8 +1043,8 @@ export default function AccountPage() {
                             </div>
 
                             <div className={styles.sidebarControls}>
-                                <button 
-                                    className={`${styles.btn} ${editing ? styles.btnSecondary : styles.btnPrimary} `} 
+                                <button
+                                    className={`${styles.btn} ${editing ? styles.btnSecondary : styles.btnPrimary} `}
                                     onClick={() => {
                                         const next = !editing;
                                         setEditing(next);
@@ -714,7 +1064,7 @@ export default function AccountPage() {
 
                         {/* Content Section */}
                         <section className={styles.tabsContainer}>
-                            
+
                             {/* Profile Completion indicator */}
                             <div className={styles.progressSection}>
                                 <div className={styles.progressHeader}>
@@ -722,8 +1072,8 @@ export default function AccountPage() {
                                     <span className={styles.progressPercent}>{getCompletionPercentage()}%</span>
                                 </div>
                                 <div className={styles.progressBarOuter}>
-                                    <div 
-                                        className={styles.progressBarInner} 
+                                    <div
+                                        className={styles.progressBarInner}
                                         style={{ width: `${getCompletionPercentage()}%` }}
                                     />
                                 </div>
@@ -767,11 +1117,11 @@ export default function AccountPage() {
                                                 </span>
                                             </div>
                                             <div style={{ height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '999px', overflow: 'hidden' }}>
-                                                <div style={{ 
-                                                    height: '100%', 
+                                                <div style={{
+                                                    height: '100%',
                                                     width: `${goalProgress}%`,
-                                                    background: goalProgress >= 100 
-                                                        ? 'linear-gradient(90deg, #10b981, #34d399)' 
+                                                    background: goalProgress >= 100
+                                                        ? 'linear-gradient(90deg, #10b981, #34d399)'
                                                         : 'linear-gradient(90deg, #f59e0b, #fbbf24)',
                                                     borderRadius: '999px',
                                                     transition: 'width 0.5s cubic-bezier(0.16, 1, 0.3, 1)'
@@ -781,7 +1131,7 @@ export default function AccountPage() {
                                         <div className={styles.goalTrackerRow}>
                                             <div style={{ display: 'flex', gap: '8px' }}>
                                                 {[15, 30].map(min => (
-                                                    <button 
+                                                    <button
                                                         key={min}
                                                         className={styles.goalLogBtn}
                                                         onClick={() => logReadingTime(min)}
@@ -790,7 +1140,7 @@ export default function AccountPage() {
                                                     </button>
                                                 ))}
                                             </div>
-                                            <button 
+                                            <button
                                                 className={styles.goalLogBtn}
                                                 style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--text-secondary)' }}
                                                 onClick={resetTodayProgress}
@@ -835,30 +1185,37 @@ export default function AccountPage() {
 
                             {/* Tabs Headers */}
                             <div className={styles.tabsHeader}>
-                                <button 
+                                <button
                                     className={`${styles.tabBtn} ${activeTab === 'profile' ? styles.activeTabBtn : ''}`}
-                                    onClick={() => setActiveTab('profile')}
+                                    onClick={() => switchTab('profile')}
                                 >
                                     <Settings size={16} />
                                     <span>Sozlamalar</span>
                                 </button>
-                                <button 
+                                <button
+                                    className={`${styles.tabBtn} ${activeTab === 'orders' ? styles.activeTabBtn : ''}`}
+                                    onClick={() => switchTab('orders')}
+                                >
+                                    <ShoppingBag size={16} />
+                                    <span>Buyurtmalarim ({orders.length})</span>
+                                </button>
+                                <button
                                     className={`${styles.tabBtn} ${activeTab === 'favorites' ? styles.activeTabBtn : ''}`}
-                                    onClick={() => setActiveTab('favorites')}
+                                    onClick={() => switchTab('favorites')}
                                 >
                                     <Heart size={16} />
                                     <span>Kitob javoni ({favorites.length})</span>
                                 </button>
-                                <button 
+                                <button
                                     className={`${styles.tabBtn} ${activeTab === 'quotes' ? styles.activeTabBtn : ''}`}
-                                    onClick={() => setActiveTab('quotes')}
+                                    onClick={() => switchTab('quotes')}
                                 >
                                     <MessageSquare size={16} />
                                     <span>Iqtiboslar ({quotes.length})</span>
                                 </button>
-                                <button 
+                                <button
                                     className={`${styles.tabBtn} ${activeTab === 'history' ? styles.activeTabBtn : ''}`}
-                                    onClick={() => setActiveTab('history')}
+                                    onClick={() => switchTab('history')}
                                 >
                                     <Clock size={16} />
                                     <span>Tarix</span>
@@ -867,10 +1224,10 @@ export default function AccountPage() {
 
                             {/* Tab Switcher Area */}
                             <AnimatePresence mode="wait">
-                                
+
                                 {/* SETTINGS TAB */}
                                 {activeTab === 'profile' && (
-                                    <motion.div 
+                                    <motion.div
                                         key="profile-tab"
                                         initial={{ opacity: 0, x: 10 }}
                                         animate={{ opacity: 1, x: 0 }}
@@ -879,7 +1236,7 @@ export default function AccountPage() {
                                         className={styles.glassCard}
                                     >
                                         <h3 style={{ fontSize: '1.2rem', marginBottom: '1.25rem', fontWeight: 700 }}>Profil ma'lumotlari</h3>
-                                        
+
                                         {!editing ? (
                                             <div style={{ display: 'grid', gap: '1rem' }}>
                                                 <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px 16px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.04)' }}>
@@ -913,10 +1270,10 @@ export default function AccountPage() {
                                                         <label className={styles.fieldTitle}>Ism</label>
                                                         <div className={styles.inputWrapper}>
                                                             <User size={18} className={styles.inputIcon} />
-                                                            <input 
-                                                                ref={nameRef} 
-                                                                value={name} 
-                                                                onChange={(e) => setName(e.target.value)} 
+                                                            <input
+                                                                ref={nameRef}
+                                                                value={name}
+                                                                onChange={(e) => setName(e.target.value)}
                                                                 placeholder="Ismingiz"
                                                                 className={styles.inputField}
                                                             />
@@ -927,11 +1284,11 @@ export default function AccountPage() {
                                                         <label className={styles.fieldTitle}>Email</label>
                                                         <div className={styles.inputWrapper}>
                                                             <Mail size={18} className={styles.inputIcon} />
-                                                            <input 
-                                                                ref={emailRef} 
-                                                                value={email} 
+                                                            <input
+                                                                ref={emailRef}
+                                                                value={email}
                                                                 type="email"
-                                                                placeholder="example@mail.com" 
+                                                                placeholder="example@mail.com"
                                                                 className={styles.inputField}
                                                                 readOnly
                                                                 disabled
@@ -962,9 +1319,258 @@ export default function AccountPage() {
                                     </motion.div>
                                 )}
 
+                                {/* ORDERS TAB (BUYURTMALARIM) */}
+                                {activeTab === 'orders' && (
+                                    <motion.div
+                                        key="orders-tab"
+                                        initial={{ opacity: 0, x: 10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: -10 }}
+                                        transition={{ duration: 0.2 }}
+                                        className={styles.ordersTabWrapper}
+                                    >
+                                        <div className={styles.glassCard} style={{ marginBottom: 0 }}>
+                                            {/* Header Toolbar */}
+                                            <div className={styles.ordersHeaderToolbar}>
+                                                <div>
+                                                    <h3 className={styles.ordersHeading}>Buyurtmalarim va Xaridlar</h3>
+                                                    <p className={styles.ordersSubheading}>
+                                                        Barcha to&apos;lovlar, cheklar va xarid qilingan kitoblaringiz ro&apos;yxati
+                                                    </p>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleManualRefresh}
+                                                    className={styles.refreshOrdersBtn}
+                                                    disabled={orderRefreshing}
+                                                    title="Buyurtmalar holatini tekshirish va yangilash"
+                                                >
+                                                    <RefreshCw size={14} className={orderRefreshing ? styles.spinAnim : ''} />
+                                                    <span>{orderRefreshing ? 'Tekshirilmoqda...' : 'Holatni yangilash'}</span>
+                                                </button>
+                                            </div>
+
+                                            {/* Filter Pills */}
+                                            {orders.length > 0 && (
+                                                <div className={styles.ordersFiltersRow} style={{ marginTop: '0.75rem', marginBottom: '1.25rem' }}>
+                                                    <button
+                                                        type="button"
+                                                        className={`${styles.filterPill} ${orderFilter === 'all' ? styles.activeFilterPill : ''}`}
+                                                        onClick={() => setOrderFilter('all')}
+                                                    >
+                                                        Barchasi ({orders.length})
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className={`${styles.filterPill} ${orderFilter === 'pending' ? styles.activeFilterPill : ''}`}
+                                                        onClick={() => setOrderFilter('pending')}
+                                                    >
+                                                        ⏳ Tekshirilmoqda ({orders.filter(o => o.status === 'pending').length})
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className={`${styles.filterPill} ${orderFilter === 'completed' ? styles.activeFilterPill : ''}`}
+                                                        onClick={() => setOrderFilter('completed')}
+                                                    >
+                                                        ✅ Tasdiqlangan ({orders.filter(o => o.status === 'completed' || o.status === 'delivered').length})
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            {/* Orders Content */}
+                                            {orders.length === 0 ? (
+                                                <div className={styles.emptyOrdersCard}>
+                                                    <div className={styles.emptyOrdersIcon}>
+                                                        <ShoppingBag size={32} />
+                                                    </div>
+                                                    <h4 className={styles.emptyOrdersTitle}>Sizda hali buyurtmalar mavjud emas</h4>
+                                                    <p className={styles.emptyOrdersText}>
+                                                        Kitoblar katalogidan o&apos;zingizga yoqqan asarni tanlang va xarid qiling. Elektron kitoblar to&apos;lov tasdiqlangach darhol mutolaa uchun ochiladi.
+                                                    </p>
+                                                    <Link href="/search" className={styles.browseBooksBtn}>
+                                                        <BookOpen size={16} /> Kitoblar katalogiga o&apos;tish
+                                                    </Link>
+                                                </div>
+                                            ) : (
+                                                (() => {
+                                                    const filtered = orders.filter(o => {
+                                                        if (orderFilter === 'pending') return o.status === 'pending';
+                                                        if (orderFilter === 'completed') return o.status === 'completed' || o.status === 'delivered';
+                                                        return true;
+                                                    });
+
+                                                    if (filtered.length === 0) {
+                                                        return (
+                                                            <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                                                                Bu filtr bo&apos;yicha hech qanday buyurtma topilmadi.
+                                                            </div>
+                                                        );
+                                                    }
+
+                                                    return (
+                                                        <div className={styles.ordersList}>
+                                                            {filtered.map(order => {
+                                                                const isCompleted = order.status === 'completed' || order.status === 'delivered';
+                                                                const isPending = order.status === 'pending';
+                                                                const isPaper = order.format === 'paper';
+
+                                                                return (
+                                                                    <div key={order.id} className={styles.orderCard}>
+                                                                        {/* Card Header: Receipt & Status */}
+                                                                        <div className={styles.orderCardHeader}>
+                                                                            <div className={styles.receiptBadge}>
+                                                                                <span className={styles.receiptTag}>Chek:</span>
+                                                                                <strong>{order.receiptNumber}</strong>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => copyReceipt(order.receiptNumber)}
+                                                                                    title="Chek raqamidan nusxa olish"
+                                                                                    className={styles.copyReceiptBtn}
+                                                                                >
+                                                                                    {copiedReceipt === order.receiptNumber ? (
+                                                                                        <Check size={13} className={styles.copySuccessIcon} />
+                                                                                    ) : (
+                                                                                        <Copy size={13} />
+                                                                                    )}
+                                                                                    {copiedReceipt === order.receiptNumber && (
+                                                                                        <span className={styles.copyTooltip}>Nusxa olindi!</span>
+                                                                                    )}
+                                                                                </button>
+                                                                            </div>
+
+                                                                            <div className={styles.orderHeaderRight}>
+                                                                                <span className={styles.orderDate}>
+                                                                                    <Calendar size={13} />
+                                                                                    {formatOrderDate(order.createdAt)}
+                                                                                </span>
+                                                                                {isPending && (
+                                                                                    <div className={`${styles.statusBadge} ${styles.statusPending}`}>
+                                                                                        <span className={styles.statusPulseDot}></span>
+                                                                                        <Clock size={13} />
+                                                                                        <span>To&apos;lov tekshirilmoqda</span>
+                                                                                    </div>
+                                                                                )}
+                                                                                {isCompleted && (
+                                                                                    <div className={`${styles.statusBadge} ${styles.statusCompleted}`}>
+                                                                                        <CheckCircle2 size={13} />
+                                                                                        <span>To&apos;langan (Faol)</span>
+                                                                                    </div>
+                                                                                )}
+                                                                                {order.status === 'processing' && (
+                                                                                    <div className={`${styles.statusBadge} ${styles.statusProcessing}`}>
+                                                                                        <Truck size={13} />
+                                                                                        <span>Yetkazilmoqda</span>
+                                                                                    </div>
+                                                                                )}
+                                                                                {order.status === 'cancelled' && (
+                                                                                    <div className={`${styles.statusBadge} ${styles.statusCancelled}`}>
+                                                                                        <AlertCircle size={13} />
+                                                                                        <span>Bekor qilingan</span>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+
+                                                                        {/* Card Body */}
+                                                                        <div className={styles.orderCardBody}>
+                                                                            <div className={styles.orderCoverWrapper}>
+                                                                                <Image
+                                                                                    src={order.bookImage || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=600'}
+                                                                                    alt={order.bookTitle}
+                                                                                    fill
+                                                                                    sizes="70px"
+                                                                                    className={styles.orderCoverImg}
+                                                                                    unoptimized
+                                                                                />
+                                                                            </div>
+
+                                                                            <div className={styles.orderMainInfo}>
+                                                                                <Link href={`/book/${order.bookId}`} className={styles.orderBookTitle}>
+                                                                                    {order.bookTitle}
+                                                                                </Link>
+                                                                                <p className={styles.orderBookAuthor}>{order.bookAuthor}</p>
+
+                                                                                <div className={styles.orderMetaTags}>
+                                                                                    <span className={styles.orderMetaTag}>
+                                                                                        {isPaper ? "📦 Bosma kitob (Yetkazish)" : "📱 Elektron kitob"}
+                                                                                    </span>
+                                                                                    <span className={styles.orderMetaTag}>
+                                                                                        💳 {formatPaymentMethod(order.paymentMethod)} {order.senderCardLast4 ? `(*${order.senderCardLast4})` : ''}
+                                                                                    </span>
+                                                                                    {order.deliveryAddress && (
+                                                                                        <span className={styles.orderMetaTag} title={order.deliveryAddress}>
+                                                                                            📍 {order.deliveryAddress}
+                                                                                        </span>
+                                                                                    )}
+                                                                                    {order.userPhone && isPaper && (
+                                                                                        <span className={styles.orderMetaTag}>
+                                                                                            📞 {order.userPhone}
+                                                                                        </span>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+
+                                                                            <div className={styles.orderRightCol}>
+                                                                                <div className={styles.orderPriceTag}>
+                                                                                    {order.price.toLocaleString('uz-UZ')} so&apos;m
+                                                                                </div>
+
+                                                                                <div className={styles.orderActionButtons}>
+                                                                                    {isCompleted ? (
+                                                                                        <>
+                                                                                            {!isPaper ? (
+                                                                                                <Link href={`/book/${order.bookId}/read`} className={styles.orderReadBtn}>
+                                                                                                    <BookOpen size={15} /> Mutolaa qilish
+                                                                                                </Link>
+                                                                                            ) : (
+                                                                                                <div className={styles.orderReadBtn} style={{ background: '#0ea5e9' }}>
+                                                                                                    <Truck size={15} /> Tez orada yetkaziladi
+                                                                                                </div>
+                                                                                            )}
+                                                                                            <Link href={`/book/${order.bookId}`} className={styles.orderListenBtn}>
+                                                                                                <Headphones size={15} /> Sahifaga o&apos;tish
+                                                                                            </Link>
+                                                                                        </>
+                                                                                    ) : isPending ? (
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={() => checkSingleOrderStatus(order)}
+                                                                                            className={styles.orderCheckStatusBtn}
+                                                                                            title="To'lov holatini tekshirish"
+                                                                                        >
+                                                                                            <RefreshCw size={13} className={orderRefreshing ? styles.spinAnim : ''} />
+                                                                                            <span>Holatni tekshirish</span>
+                                                                                        </button>
+                                                                                    ) : (
+                                                                                        <span className={styles.orderCancelledText}>Buyurtma bekor qilingan</span>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        {/* Card Footer: Pending info banner */}
+                                                                        {isPending && (
+                                                                            <div className={styles.orderPendingNotice}>
+                                                                                <Sparkles size={14} className={styles.noticeIcon} />
+                                                                                <span>
+                                                                                    To&apos;lovingiz admin tomonidan tekshirilmoqda . Tasdiqlangach bu yerda &quot;Mutolaa qilish&quot; tugmasi chiqadi.
+                                                                                </span>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    );
+                                                })()
+                                            )}
+                                        </div>
+                                    </motion.div>
+                                )}
+
                                 {/* BOOKSHELF / FAVORITES TAB */}
                                 {activeTab === 'favorites' && (
-                                    <motion.div 
+                                    <motion.div
                                         key="favorites-tab"
                                         initial={{ opacity: 0, x: 10 }}
                                         animate={{ opacity: 1, x: 0 }}
@@ -996,10 +1602,10 @@ export default function AccountPage() {
                                                     <div key={book.id} className={styles.favItem}>
                                                         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', minWidth: 0, flex: 1 }}>
                                                             <div className={styles.favBookCover}>
-                                                                <Image 
-                                                                    src={book.image} 
-                                                                    alt={book.title} 
-                                                                    fill 
+                                                                <Image
+                                                                    src={book.image}
+                                                                    alt={book.title}
+                                                                    fill
                                                                     sizes="48px"
                                                                     unoptimized
                                                                 />
@@ -1014,12 +1620,12 @@ export default function AccountPage() {
                                                                         <span>•</span>
                                                                         <span className={styles.ratingBadge}>★ {book.rating.toFixed(1)}</span>
                                                                     </div>
-                                                                    
+
                                                                     {/* Shelf status picker */}
                                                                     <div className={styles.statusWrapper}>
                                                                         <span style={{ fontSize: '0.7rem' }}>Status:</span>
-                                                                        <select 
-                                                                            value={book.status} 
+                                                                        <select
+                                                                            value={book.status}
                                                                             onChange={(e) => handleStatusChange(book.id, e.target.value as BookStatus)}
                                                                             className={styles.statusSelectMini}
                                                                         >
@@ -1031,9 +1637,9 @@ export default function AccountPage() {
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                        <button 
-                                                            className={`${styles.btn} ${styles.btnDanger}`} 
-                                                            onClick={() => removeFavoriteDirect(book.id, book.title)} 
+                                                        <button
+                                                            className={`${styles.btn} ${styles.btnDanger}`}
+                                                            onClick={() => removeFavoriteDirect(book.id, book.title)}
                                                             aria-label={`O'chirish ${book.title}`}
                                                             style={{ padding: '8px 12px' }}
                                                         >
@@ -1048,7 +1654,7 @@ export default function AccountPage() {
 
                                 {/* QUOTES TAB */}
                                 {activeTab === 'quotes' && (
-                                    <motion.div 
+                                    <motion.div
                                         key="quotes-tab"
                                         initial={{ opacity: 0, x: 10 }}
                                         animate={{ opacity: 1, x: 0 }}
@@ -1063,7 +1669,7 @@ export default function AccountPage() {
                                         <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
                                             Mutolaa davomida qalbingizga yoqqan dono satrlar va shaxsiy fikrlaringizni shu yerda to'plang.
                                         </p>
-                                        
+
                                         {/* Add Quote Form */}
                                         <form className={styles.quoteForm} onSubmit={handleAddQuote} style={{
                                             background: 'rgba(255, 255, 255, 0.02)',
@@ -1075,22 +1681,22 @@ export default function AccountPage() {
                                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem', marginBottom: '0.75rem' }}>
                                                 <div className={styles.field}>
                                                     <label className={styles.fieldTitle}>Kitobni tanlang</label>
-                                                    <select 
-                                                        value={quoteBookId} 
+                                                    <select
+                                                        value={quoteBookId}
                                                         onChange={(e) => setQuoteBookId(e.target.value)}
                                                         className={styles.selectField}
                                                         required
                                                     >
                                                         <option value="">-- Kitobni tanlang --</option>
-                                                         {activeBooksList.map(b => (
-                                                             <option key={b.id} value={b.id}>{b.title} - {b.author}</option>
-                                                         ))}
+                                                        {activeBooksList.map(b => (
+                                                            <option key={b.id} value={b.id}>{b.title} - {b.author}</option>
+                                                        ))}
                                                     </select>
                                                 </div>
 
                                                 <div className={styles.field}>
                                                     <label className={styles.fieldTitle}>Sahifa raqami (ixtiyoriy)</label>
-                                                    <input 
+                                                    <input
                                                         type="text"
                                                         value={quotePageNum}
                                                         onChange={(e) => setQuotePageNum(e.target.value)}
@@ -1116,7 +1722,7 @@ export default function AccountPage() {
 
                                             <div className={styles.field} style={{ marginBottom: '1rem' }}>
                                                 <label className={styles.fieldTitle}>Iqtibos matni</label>
-                                                <textarea 
+                                                <textarea
                                                     value={quoteText}
                                                     onChange={(e) => setQuoteText(e.target.value)}
                                                     placeholder="Sizga yoqqan ajoyib iqtibos yoki eslatmani yozing..."
@@ -1126,8 +1732,8 @@ export default function AccountPage() {
                                                 />
                                             </div>
 
-                                            <button 
-                                                type="submit" 
+                                            <button
+                                                type="submit"
                                                 className={`${styles.btn} ${styles.btnPrimary}`}
                                                 disabled={!quoteText.trim() || !quoteBookId}
                                                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
@@ -1250,7 +1856,7 @@ export default function AccountPage() {
                                                                 >
                                                                     <Share2 size={14} /> Ulashish
                                                                 </button>
-                                                                <button 
+                                                                <button
                                                                     className={`${styles.btn} ${styles.btnDanger}`}
                                                                     style={{ padding: '6px 10px', fontSize: '0.78rem' }}
                                                                     onClick={() => removeQuote(q.id, q.bookTitle)}
@@ -1317,7 +1923,7 @@ export default function AccountPage() {
                                                     <span className={styles.recAuthor}>{book.author}</span>
                                                     <span style={{ fontSize: '0.72rem', color: '#fbbf24', marginTop: '2px', display: 'block' }}>★ {book.rating?.toFixed(1) ?? '—'}</span>
                                                 </div>
-                                                <button 
+                                                <button
                                                     className={styles.recAddBtn}
                                                     onClick={() => addFavoriteDirect(book.id, book.title)}
                                                     title="Sevimlilarga qo'shish"
@@ -1337,7 +1943,7 @@ export default function AccountPage() {
 
             {/* Badge Detail Interactive Modal */}
             {selectedBadge && (
-                <div 
+                <div
                     style={{
                         position: 'fixed', inset: 0, zIndex: 9999,
                         backgroundColor: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)',
@@ -1345,7 +1951,7 @@ export default function AccountPage() {
                     }}
                     onClick={() => setSelectedBadge(null)}
                 >
-                    <div 
+                    <div
                         style={{
                             background: 'var(--card-bg, #141720)',
                             border: '1px solid var(--card-border, rgba(255,255,255,0.1))',

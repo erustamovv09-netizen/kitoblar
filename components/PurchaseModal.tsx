@@ -505,7 +505,7 @@ export default function PurchaseModal({ isOpen, onClose, book, initialFormat = '
                 <button type="button" className={styles.readNowBtn} onClick={onClose}>
                   <CheckCircle2 size={16} /> Tushundim
                 </button>
-                <Link href="/account" className={styles.closeSuccessBtn} onClick={onClose} style={{ textAlign: 'center', textDecoration: 'none' }}>
+                <Link href="/account?tab=orders" className={styles.closeSuccessBtn} onClick={onClose} style={{ textAlign: 'center', textDecoration: 'none' }}>
                   Buyurtmalarimga o&apos;tish
                 </Link>
               </div>
