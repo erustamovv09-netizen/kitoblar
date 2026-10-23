@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Heart, Share2, BookOpen, Headphones, Package, Star, X, Send, MessageCircle, Copy, Check, CheckCircle2, Clock } from 'lucide-react';
+import { Heart, Share2, BookOpen, Headphones, Star, X, Send, MessageCircle, Copy, Check, CheckCircle2, Clock } from 'lucide-react';
 import { checkBookAccess } from '@/app/lib/purchases';
 import PurchaseModal from '@/components/PurchaseModal';
 import styles from './page.module.css';
@@ -244,13 +244,6 @@ export default function BookActions({ book, recommended }: { book: Book; recomme
                         <Share2 size={18} />
                     </button>
                 </div>
-            </div>
-
-
-            <div style={{ marginTop: '1rem' }}>
-                <button onClick={handleOrderPhysical} className={styles.primaryBtn} style={{ backgroundColor: 'rgba(79, 142, 247, 0.08)', width: '100%', maxWidth: 'none', color: 'var(--accent-blue, #4f8ef7)', border: '1px dashed rgba(79, 142, 247, 0.35)', display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
-                    <Package size={18} /> Qog&apos;oz formatda buyurtma qilish ({(book as any).pricePaper || book.price})
-                </button>
             </div>
 
             {(recommended && recommended.length > 0) && (
