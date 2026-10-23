@@ -1,5 +1,29 @@
 [
   {
+    "id": "ord_1792756182529_106",
+    "receiptNumber": "AKS-677348",
+    "bookId": "6",
+    "bookTitle": "Seniki bo'lgan seniki topadi",
+    "bookAuthor": "Go'kan Kinsun",
+    "bookImage": "https://kitoblar-backend.onrender.com/media/book_covers/Image_6.jpeg",
+    "format": "electronic",
+    "formatLabel": "Elektron kitob",
+    "purpose": "Saytda to'liq mutolaa qilish va audioni eshitish huquqi (Cheksiz kirish)",
+    "price": 20000,
+    "originalPrice": 20000,
+    "paymentMethod": "uzum",
+    "userName": "Elshod",
+    "userEmail": "elshod@example.com",
+    "userPhone": "+998 99 890 99 98",
+    "senderCardLast4": "4421",
+    "deliveryAddress": null,
+    "region": null,
+    "status": "pending",
+    "statusLabel": "To'lov kutilmoqda (Tekshirilmoqda)",
+    "createdAt": "2026-10-23T11:49:41.940Z",
+    "notes": "Xaridor to'lov qildi (Karta: *4421). Telegram orqali tasdiqlash kutilmoqda."
+  },
+  {
     "id": "ord_1792751219880_120",
     "receiptNumber": "AKS-770929",
     "bookId": "2",
@@ -18,10 +42,10 @@
     "senderCardLast4": "4421",
     "deliveryAddress": null,
     "region": null,
-    "status": "pending",
-    "statusLabel": "To'lov kutilmoqda (Tekshirilmoqda)",
+    "status": "cancelled",
+    "statusLabel": "Bekor qilindi",
     "createdAt": "2026-10-23T10:26:58.787Z",
-    "notes": "Xaridor to'lov qildi (Karta: *4421). Telegram orqali tasdiqlash kutilmoqda."
+    "notes": "Xaridor to'lov qildi (Karta: *4421). Telegram orqali tasdiqlash kutilmoqda. [Telegram orqali bekor qilindi] [Telegram orqali bekor qilindi] [Telegram orqali bekor qilindi]"
   },
   {
     "id": "ord_1792748180415_425",

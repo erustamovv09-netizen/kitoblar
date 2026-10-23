@@ -149,6 +149,92 @@
   margin: 0;
 }
 
+/* Format Selector Toggle */
+.formatToggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  width: 100%;
+}
+
+.formatOption {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--search-bg, rgba(255, 255, 255, 0.04));
+  border: 1.5px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-radius: 14px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+  position: relative;
+  font-family: inherit;
+  color: var(--text-primary, #ffffff);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.formatOption:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.formatOptionActive {
+  background: rgba(59, 130, 246, 0.12) !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 1px #3b82f6, 0 4px 14px rgba(59, 130, 246, 0.22);
+}
+
+.formatIcon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #3b82f6;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.formatOptionActive .formatIcon {
+  background: #3b82f6;
+  color: #ffffff;
+}
+
+.formatDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+}
+
+.formatName {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.formatDesc {
+  font-size: 0.74rem;
+  color: var(--text-secondary, #94a3b8);
+  line-height: 1.3;
+}
+
+.formatPrice {
+  margin-top: 4px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #10b981;
+}
+
 /* Price Box */
 .priceBox {
   padding: 1.15rem 1.25rem;

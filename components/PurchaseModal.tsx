@@ -18,7 +18,8 @@ import {
   Copy,
   Check,
   Clock,
-  MapPin
+  MapPin,
+  ExternalLink
 } from 'lucide-react';
 import { restoreUserSession } from '@/app/lib/session';
 import { formatUzbekDateTime } from '@/app/lib/date';
@@ -52,6 +53,101 @@ interface PurchaseModalProps {
 }
 
 type PaymentMethod = 'card' | 'payme' | 'click' | 'uzum';
+
+const PAYMENT_CONFIGS: Record<PaymentMethod, {
+  name: string;
+  sub: string;
+  badge: string;
+  badgeBg: string;
+  badgeColor: string;
+  brand: string;
+  themeColor: string;
+  gradient: string;
+  glowColor: string;
+  tagline: string;
+  appUrl?: string;
+  appButtonText?: string;
+  instructions: {
+    step1: string;
+    step2: string;
+    step3: string;
+  };
+}> = {
+  card: {
+    name: 'Bank kartasi',
+    sub: 'Uzcard / Humo / Visa',
+    badge: '💳',
+    badgeBg: 'rgba(16, 185, 129, 0.15)',
+    badgeColor: '#10b981',
+    brand: 'BANK KARTASI (UZCARD / HUMO / VISA)',
+    themeColor: '#10b981',
+    gradient: 'linear-gradient(135deg, #052e23 0%, #0d4636 50%, #031b14 100%)',
+    glowColor: 'rgba(16, 185, 129, 0.35)',
+    tagline: 'Istalgan mobil banking ilovangiz orqali o\'tkazing',
+    instructions: {
+      step1: 'Karta raqamidan "Nusxa olish" tugmasi orqali nusxalang.',
+      step2: 'Mobil banking ilovangizda (Anorbank, TBC, Ipak Yo‘li, Kapitalbank va h.k.) summani o‘tkazing.',
+      step3: 'O‘tkazma qilgan kartangizning oxirgi 4 ta raqamini va to‘lov chekini quyida kiriting.',
+    }
+  },
+  payme: {
+    name: 'Payme',
+    sub: 'Payme orqali to‘lov',
+    badge: 'P',
+    badgeBg: 'rgba(0, 204, 204, 0.15)',
+    badgeColor: '#00cccc',
+    brand: 'PAYME ORQALI TO‘LOV',
+    themeColor: '#00cccc',
+    gradient: 'linear-gradient(135deg, #05262e 0%, #0c3e4a 50%, #02161b 100%)',
+    glowColor: 'rgba(0, 204, 204, 0.35)',
+    tagline: 'Payme ilovasiga o\'tib, kartaga tezkor o\'tkazing',
+    appUrl: 'https://payme.uz/',
+    appButtonText: 'Payme ilovasini ochish',
+    instructions: {
+      step1: 'Karta raqamini nusxalang yoki to‘g‘ridan-to‘g‘ri "Payme ilovasini ochish" tugmasini bosing.',
+      step2: 'Payme ilovangizda "O‘tkazmalar" bo‘limiga o‘tib, ko‘rsatilgan summani yuboring.',
+      step3: 'O‘tkazma qilgan kartangizning oxirgi 4 ta raqamini va to‘lov chekini quyida kiriting.',
+    }
+  },
+  click: {
+    name: 'Click',
+    sub: 'Click Up orqali to‘lov',
+    badge: 'C',
+    badgeBg: 'rgba(0, 115, 255, 0.15)',
+    badgeColor: '#0073ff',
+    brand: 'CLICK ORQALI TO‘LOV',
+    themeColor: '#0073ff',
+    gradient: 'linear-gradient(135deg, #081e3a 0%, #0c3162 50%, #041021 100%)',
+    glowColor: 'rgba(0, 115, 255, 0.35)',
+    tagline: 'Click ilovasiga o\'tib, kartaga bir zumda yuboring',
+    appUrl: 'https://my.click.uz/',
+    appButtonText: 'Click ilovasini ochish',
+    instructions: {
+      step1: 'Karta raqamini nusxalang yoki to‘g‘ridan-to‘g‘ri "Click ilovasini ochish" tugmasini bosing.',
+      step2: 'Click ilovangizda "Kartaga o‘tkazish" bo‘limiga kirib ko‘rsatilgan summani yuboring.',
+      step3: 'O‘tkazma qilgan kartangizning oxirgi 4 ta raqamini va to‘lov chekini quyida kiriting.',
+    }
+  },
+  uzum: {
+    name: 'Uzum Pay',
+    sub: 'Uzum Bank orqali to‘lov',
+    badge: 'U',
+    badgeBg: 'rgba(168, 85, 247, 0.15)',
+    badgeColor: '#a855f7',
+    brand: 'UZUM BANK / UZUM PAY',
+    themeColor: '#a855f7',
+    gradient: 'linear-gradient(135deg, #24083a 0%, #441170 50%, #120320 100%)',
+    glowColor: 'rgba(168, 85, 247, 0.35)',
+    tagline: 'Uzum Bank ilovasidan 0% komissiya bilan to\'lang',
+    appUrl: 'https://uzumbank.uz/',
+    appButtonText: 'Uzum Bank ilovasini ochish',
+    instructions: {
+      step1: 'Uzum Bank karta raqamidan "Nusxa olish" tugmasi orqali nusxa oling.',
+      step2: 'Uzum Bank ilovangizda "O‘tkazmalar" bo‘limidan 0% komissiya bilan summani o‘tkazing.',
+      step3: 'O‘tkazma qilgan kartangizning oxirgi 4 ta raqamini va to‘lov chekini quyida kiriting.',
+    }
+  }
+};
 
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop';
 
@@ -543,107 +639,168 @@ export default function PurchaseModal({ isOpen, onClose, book, initialFormat = '
               <div>
                 <div className={styles.sectionTitle}>To&apos;lov tizimini tanlang</div>
                 <div className={styles.paymentGrid}>
-                  <div
-                    className={`${styles.paymentCard} ${paymentMethod === 'card' ? styles.paymentCardActive : ''}`}
-                    onClick={() => setPaymentMethod('card')}
-                  >
-                    <div className={styles.paymentIconBadge} style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>
-                      <CreditCard size={16} />
-                    </div>
-                    <div className={styles.paymentInfo}>
-                      <span className={styles.paymentName}>Bank kartasi</span>
-                      <span className={styles.paymentSub}>Uzcard / Humo</span>
-                    </div>
-                  </div>
-
-                  <div
-                    className={`${styles.paymentCard} ${paymentMethod === 'payme' ? styles.paymentCardActive : ''}`}
-                    onClick={() => setPaymentMethod('payme')}
-                  >
-                    <div className={styles.paymentIconBadge} style={{ background: 'rgba(0, 204, 204, 0.15)', color: '#00cccc' }}>
-                      P
-                    </div>
-                    <div className={styles.paymentInfo}>
-                      <span className={styles.paymentName}>Payme</span>
-                      <span className={styles.paymentSub}>Kartaga o&apos;tkazma</span>
-                    </div>
-                  </div>
-
-                  <div
-                    className={`${styles.paymentCard} ${paymentMethod === 'click' ? styles.paymentCardActive : ''}`}
-                    onClick={() => setPaymentMethod('click')}
-                  >
-                    <div className={styles.paymentIconBadge} style={{ background: 'rgba(0, 115, 255, 0.15)', color: '#0073ff' }}>
-                      C
-                    </div>
-                    <div className={styles.paymentInfo}>
-                      <span className={styles.paymentName}>Click</span>
-                      <span className={styles.paymentSub}>Kartaga o&apos;tkazma</span>
-                    </div>
-                  </div>
-
-                  <div
-                    className={`${styles.paymentCard} ${paymentMethod === 'uzum' ? styles.paymentCardActive : ''}`}
-                    onClick={() => setPaymentMethod('uzum')}
-                  >
-                    <div className={styles.paymentIconBadge} style={{ background: 'rgba(123, 44, 191, 0.15)', color: '#9d4edd' }}>
-                      U
-                    </div>
-                    <div className={styles.paymentInfo}>
-                      <span className={styles.paymentName}>Uzum Pay</span>
-                      <span className={styles.paymentSub}>Kartaga o&apos;tkazma</span>
-                    </div>
-                  </div>
+                  {(Object.keys(PAYMENT_CONFIGS) as PaymentMethod[]).map((key) => {
+                    const cfg = PAYMENT_CONFIGS[key];
+                    const isActive = paymentMethod === key;
+                    return (
+                      <div
+                        key={key}
+                        className={`${styles.paymentCard} ${isActive ? styles.paymentCardActive : ''}`}
+                        onClick={() => setPaymentMethod(key)}
+                        style={isActive ? {
+                          borderColor: cfg.themeColor,
+                          background: `${cfg.themeColor}18`,
+                          boxShadow: `0 0 0 1px ${cfg.themeColor}, 0 4px 12px ${cfg.glowColor}`
+                        } : undefined}
+                      >
+                        <div
+                          className={styles.paymentIconBadge}
+                          style={{ background: cfg.badgeBg, color: cfg.badgeColor }}
+                        >
+                          {key === 'card' ? <CreditCard size={16} /> : cfg.badge}
+                        </div>
+                        <div className={styles.paymentInfo}>
+                          <span className={styles.paymentName} style={isActive ? { color: cfg.themeColor } : undefined}>
+                            {cfg.name}
+                          </span>
+                          <span className={styles.paymentSub}>{cfg.sub}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Admin Bank Card Widget */}
-              <div className={styles.bankCardWidget}>
-                <div className={styles.bankCardTop}>
-                  <div className={styles.bankCardChip} />
-                  <span className={styles.bankCardBrand}>{ADMIN_CARD_BANK}</span>
-                </div>
-                <div className={styles.bankCardNumberRow}>
-                  <span className={styles.bankCardNumber}>{ADMIN_CARD_NUMBER}</span>
-                  <button
-                    type="button"
-                    className={`${styles.copyCardBtn} ${copiedCard ? styles.copyCardBtnCopied : ''}`}
-                    onClick={handleCopyCard}
-                  >
-                    {copiedCard ? (
-                      <>
-                        <Check size={14} /> Nusxa olindi
-                      </>
-                    ) : (
-                      <>
-                        <Copy size={14} /> Nusxa olish
-                      </>
-                    )}
-                  </button>
-                </div>
-                <div className={styles.bankCardBottom}>
-                  <div>
-                    <span style={{ fontSize: '0.68rem', display: 'block', opacity: 0.7 }}>KARTA EGASI</span>
-                    <span className={styles.bankCardHolder}>{ADMIN_CARD_HOLDER}</span>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <span style={{ fontSize: '0.68rem', display: 'block', opacity: 0.7 }}>O&apos;TKAZILADIGAN SUMMA</span>
-                    <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#34d399' }}>
-                      {currentPriceNum.toLocaleString('uz-UZ')} so&apos;m
-                    </span>
-                  </div>
-                </div>
-              </div>
+              {/* Dynamic Payment Card Widget */}
+              {(() => {
+                const cfg = PAYMENT_CONFIGS[paymentMethod] || PAYMENT_CONFIGS.card;
+                return (
+                  <>
+                    <div
+                      className={styles.bankCardWidget}
+                      style={{
+                        background: cfg.gradient,
+                        borderColor: `${cfg.themeColor}55`,
+                        boxShadow: `0 14px 30px -6px ${cfg.glowColor}, 0 0 0 1px ${cfg.themeColor}33`,
+                      }}
+                    >
+                      <div className={styles.bankCardTop}>
+                        <div className={styles.bankCardChip} />
+                        <span
+                          className={styles.bankCardBrand}
+                          style={{ color: cfg.themeColor, fontWeight: 900, letterSpacing: '0.5px' }}
+                        >
+                          {cfg.brand}
+                        </span>
+                      </div>
 
-              {/* Step-by-step instruction */}
-              <div className={styles.paymentNoticeBox}>
-                💡 <strong>To&apos;lov bo&apos;yicha tezkor qo&apos;llanma:</strong>
-                <ol style={{ margin: '6px 0 0 1.1rem', padding: 0, fontSize: '0.8rem', lineHeight: 1.55 }}>
-                  <li>Yuqoridagi <strong>{ADMIN_CARD_BANK}</strong> karta raqamidan <strong>&ldquo;Nusxa olish&rdquo;</strong> tugmasi orqali nusxalang.</li>
-                  <li>Ilovangizda (Uzum, Click, Payme yoki bank) ko&apos;rsatilgan <strong>{currentPriceNum.toLocaleString('uz-UZ')} so&apos;m</strong> miqdorini o&apos;tkazing.</li>
-                  <li>O&apos;tkazma qilgan kartangizning <strong>oxirgi 4 ta raqamini</strong> va chek skrinshotini yuklab <strong>&ldquo;To&apos;lov qildim&rdquo;</strong> tugmasini bosing.</li>
-                </ol>
-              </div>
+                      <div className={styles.bankCardNumberRow}>
+                        <span className={styles.bankCardNumber}>{ADMIN_CARD_NUMBER}</span>
+                        <button
+                          type="button"
+                          className={`${styles.copyCardBtn} ${copiedCard ? styles.copyCardBtnCopied : ''}`}
+                          onClick={handleCopyCard}
+                          style={{
+                            background: copiedCard ? 'rgba(16, 185, 129, 0.25)' : `${cfg.themeColor}25`,
+                            borderColor: copiedCard ? 'rgba(16, 185, 129, 0.5)' : `${cfg.themeColor}66`,
+                            color: copiedCard ? '#34d399' : cfg.themeColor,
+                          }}
+                        >
+                          {copiedCard ? (
+                            <>
+                              <Check size={14} /> Nusxa olindi
+                            </>
+                          ) : (
+                            <>
+                              <Copy size={14} /> Nusxa olish
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      <div className={styles.bankCardBottom}>
+                        <div>
+                          <span style={{ fontSize: '0.68rem', display: 'block', opacity: 0.7 }}>KARTA EGASI</span>
+                          <span className={styles.bankCardHolder}>{ADMIN_CARD_HOLDER}</span>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{ fontSize: '0.68rem', display: 'block', opacity: 0.7 }}>O&apos;TKAZILADIGAN SUMMA</span>
+                          <span style={{ fontSize: '1.08rem', fontWeight: 800, color: '#34d399' }}>
+                            {currentPriceNum.toLocaleString('uz-UZ')} so&apos;m
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Quick link button to open the specific payment app */}
+                      {cfg.appUrl && (
+                        <div style={{
+                          marginTop: '12px',
+                          paddingTop: '10px',
+                          borderTop: '1px solid rgba(255, 255, 255, 0.12)',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          gap: '10px',
+                          flexWrap: 'wrap'
+                        }}>
+                          <span style={{ fontSize: '0.74rem', opacity: 0.85, color: '#e2e8f0' }}>
+                            {cfg.tagline}
+                          </span>
+                          <a
+                            href={cfg.appUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '6px 12px',
+                              borderRadius: '8px',
+                              background: cfg.themeColor,
+                              color: '#ffffff',
+                              fontSize: '0.76rem',
+                              fontWeight: 800,
+                              textDecoration: 'none',
+                              boxShadow: `0 4px 12px ${cfg.glowColor}`,
+                              transition: 'transform 0.15s ease',
+                              fontFamily: 'inherit'
+                            }}
+                          >
+                            <ExternalLink size={12} /> {cfg.appButtonText}
+                          </a>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Step-by-step instruction tailored to selected payment system */}
+                    <div
+                      className={styles.paymentNoticeBox}
+                      style={{
+                        borderColor: `${cfg.themeColor}44`,
+                        background: `${cfg.themeColor}12`,
+                      }}
+                    >
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontWeight: 700,
+                        color: cfg.themeColor,
+                        marginBottom: '6px',
+                        fontSize: '0.85rem'
+                      }}>
+                        <span>💡</span>
+                        <span>{cfg.name} orqali to&apos;lash yo&apos;riqnomasi:</span>
+                      </div>
+                      <ol style={{ margin: '0 0 0 1.15rem', padding: 0, fontSize: '0.8rem', lineHeight: 1.55 }}>
+                        <li>{cfg.instructions.step1}</li>
+                        <li>{cfg.instructions.step2}</li>
+                        <li>{cfg.instructions.step3}</li>
+                      </ol>
+                    </div>
+                  </>
+                );
+              })()}
 
               {/* Buyer Phone & Name */}
               <div className={styles.inputField}>
