@@ -236,7 +236,8 @@
 }
 
 /* Price Box */
-.priceBox {
+.priceBox,
+.priceSummary {
   padding: 1.15rem 1.25rem;
   background: linear-gradient(135deg, rgba(16, 185, 129, 0.06), rgba(59, 130, 246, 0.06));
   border: 1px solid rgba(16, 185, 129, 0.25);
@@ -254,9 +255,20 @@
   color: var(--text-secondary);
 }
 
-.originalPriceCrossed {
+.originalPriceCrossed,
+.originalPriceStriked {
   text-decoration: line-through;
   opacity: 0.75;
+}
+
+.paperDeliverySection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1rem;
+  background: var(--search-bg, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  border-radius: 14px;
 }
 
 .savingsTag {
@@ -542,18 +554,77 @@
 }
 
 @media (max-width: 480px) {
-  .paymentGrid {
-    grid-template-columns: 1fr;
+  .overlay {
+    padding: 0.5rem;
   }
   .modal {
-    max-height: 95vh;
+    max-height: 94vh;
+    border-radius: 20px;
+  }
+  .modalHeader {
+    padding: 1rem 1.15rem;
+  }
+  .headerTitle {
+    font-size: 1.05rem;
   }
   .modalBody {
     padding: 1.15rem 1rem;
     gap: 1rem;
   }
+  .paymentGrid {
+    grid-template-columns: 1fr;
+  }
   .successButtons {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 440px) {
+  .formatToggle {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .formatOption {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+  }
+  .formatIcon {
+    width: 34px;
+    height: 34px;
+  }
+  .formatDetails {
+    flex: 1;
+  }
+  .formatPrice {
+    margin-top: 0;
+    text-align: right;
+    font-size: 0.9rem;
+    white-space: nowrap;
+  }
+  .bankCardWidget {
+    padding: 1rem;
+  }
+  .bankCardNumberRow {
+    padding: 6px 10px;
+    gap: 6px;
+  }
+  .bankCardNumber {
+    font-size: 0.92rem;
+    letter-spacing: 1px;
+  }
+  .copyCardBtn {
+    padding: 5px 8px;
+    font-size: 0.74rem;
+  }
+  .bankCardBottom {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .bankCardBottom > div:last-child {
+    text-align: left !important;
   }
 }
 
@@ -616,9 +687,9 @@
 }
 
 .bankCardNumber {
-  font-size: 1.1rem;
+  font-size: clamp(0.85rem, 3.8vw, 1.1rem);
   font-weight: 700;
-  letter-spacing: 2px;
+  letter-spacing: clamp(1px, 1.5vw, 2px);
   font-family: monospace;
   color: #fff;
   overflow: hidden;

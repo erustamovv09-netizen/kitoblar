@@ -180,35 +180,17 @@ export default function BookDetails() {
                   </div>
 
                   {/* Format narxlari: Elektron va Qog'oz */}
-                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '12px', marginBottom: '8px' }}>
-                    <div style={{
-                      padding: '8px 12px',
-                      borderRadius: '10px',
-                      background: 'rgba(79, 142, 247, 0.1)',
-                      border: '1px solid rgba(79, 142, 247, 0.25)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      fontSize: '0.85rem'
-                    }}>
+                  <div className={styles.formatPricesRow}>
+                    <div className={styles.formatPriceBadgeElec}>
                       <span>📱</span>
-                      <span style={{ color: 'var(--text-secondary)' }}>Elektron{book.hasAudio ? ' + Audio' : ''}:</span>
-                      <strong style={{ color: '#38bdf8' }}>{book.priceElectronic || (saleNum > 0 ? `${saleNum.toLocaleString('uz-UZ')} so'm` : book.price)}</strong>
+                      <span className={styles.formatBadgeLabel}>Elektron{book.hasAudio ? ' + Audio' : ''}:</span>
+                      <strong className={styles.formatPriceValElec}>{book.priceElectronic || (saleNum > 0 ? `${saleNum.toLocaleString('uz-UZ')} so'm` : book.price)}</strong>
                     </div>
 
-                    <div style={{
-                      padding: '8px 12px',
-                      borderRadius: '10px',
-                      background: 'rgba(155, 109, 255, 0.1)',
-                      border: '1px solid rgba(155, 109, 255, 0.25)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      fontSize: '0.85rem'
-                    }}>
+                    <div className={styles.formatPriceBadgePaper}>
                       <span>📖</span>
-                      <span style={{ color: 'var(--text-secondary)' }}>Qog&apos;oz kitob:</span>
-                      <strong style={{ color: '#a78bfa' }}>{book.pricePaper || book.price}</strong>
+                      <span className={styles.formatBadgeLabel}>Qog&apos;oz kitob:</span>
+                      <strong className={styles.formatPriceValPaper}>{book.pricePaper || book.price}</strong>
                     </div>
                   </div>
                 </>

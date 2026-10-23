@@ -536,6 +536,32 @@
   }
 }
 
+@media (max-width: 480px) {
+  .header {
+    padding: 0 0.6rem;
+  }
+  .headerLeft {
+    gap: 0.4rem;
+  }
+  .navBack span {
+    display: none;
+  }
+  .previewBadge {
+    display: none;
+  }
+  .headerBuyBtn {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.74rem;
+  }
+  .headerRight {
+    gap: 0.25rem;
+  }
+  .toolBtn {
+    width: 34px;
+    height: 34px;
+  }
+}
+
 /* Preview & Paywall Styling */
 .previewBadge {
   display: inline-flex;

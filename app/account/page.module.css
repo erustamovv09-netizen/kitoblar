@@ -1701,28 +1701,82 @@
 }
 
 @media (max-width: 640px) {
-    .orderCardBody {
+    .orderCardHeader {
         flex-direction: column;
         align-items: flex-start;
+        gap: 8px;
+    }
+
+    .orderHeaderRight {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .orderCardBody {
+        display: grid;
+        grid-template-columns: 60px 1fr;
+        gap: 12px;
+        align-items: start;
+    }
+
+    .orderCoverWrapper {
+        grid-column: 1;
+        grid-row: 1;
+        width: 60px;
+        height: 86px;
+    }
+
+    .orderMainInfo {
+        grid-column: 2;
+        grid-row: 1;
     }
 
     .orderRightCol {
+        grid-column: 1 / -1;
+        grid-row: 2;
         width: 100%;
-        flex-direction: row;
-        justify-content: space-between;
-        align-items: center;
+        flex-direction: column;
+        align-items: stretch;
         border-top: 1px solid var(--border-color);
         padding-top: 0.75rem;
+        gap: 8px;
+    }
+
+    .orderPriceTag {
+        align-self: flex-start;
+        font-size: 1.05rem;
     }
 
     .orderActionButtons {
         width: 100%;
-        justify-content: stretch;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
     }
 
     .orderReadBtn, .orderListenBtn, .orderCheckStatusBtn {
-        flex: 1;
+        width: 100%;
         justify-content: center;
+        padding: 9px 14px;
+        font-size: 0.85rem;
+        text-align: center;
+    }
+
+    .ordersFiltersRow {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        padding-bottom: 4px;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+
+    .ordersFiltersRow::-webkit-scrollbar {
+        display: none;
+    }
+
+    .filterPill {
+        white-space: nowrap;
+        flex-shrink: 0;
     }
 }
 
