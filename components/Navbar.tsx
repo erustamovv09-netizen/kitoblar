@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { BookOpen, Search, Heart, User, Sun, Moon, Menu, X, LogOut, LogIn, BarChart2, ChevronDown } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { restoreUserSession } from '@/app/lib/session';
 import styles from './Navbar.module.css';
 
 export default function Navbar() {
@@ -38,7 +39,7 @@ export default function Navbar() {
       case 'purple': return 'linear-gradient(135deg, #8b5cf6, #c084fc)';
       case 'emerald': return 'linear-gradient(135deg, #10b981, #34d399)';
       case 'amber': return 'linear-gradient(135deg, #f59e0b, #fbbf24)';
-      case 'blue': 
+      case 'blue':
       default:
         return 'linear-gradient(135deg, #3b82f6, #8b5cf6)';
     }
@@ -48,17 +49,17 @@ export default function Navbar() {
       case 'purple': return 'var(--accent-purple)';
       case 'emerald': return 'var(--accent-emerald)';
       case 'amber': return '#f59e0b';
-      case 'blue': 
+      case 'blue':
       default: return 'var(--accent-blue)';
     }
   };
-  
+
   const getAccentHover = (color: string) => {
     switch (color) {
       case 'purple': return 'rgba(155, 109, 255, 0.1)';
       case 'emerald': return 'rgba(16, 185, 129, 0.1)';
       case 'amber': return 'rgba(245, 158, 11, 0.1)';
-      case 'blue': 
+      case 'blue':
       default: return 'rgba(59, 130, 246, 0.1)';
     }
   };
@@ -89,10 +90,13 @@ export default function Navbar() {
   useEffect(() => {
     function checkAuth() {
       try {
-        const username = localStorage.getItem('username');
-        const name = localStorage.getItem('name');
+        // restoreUserSession localStorage, 10-yillik Cookie va sessionStorage ni tekshiradi va tiklaydi
+        const session = restoreUserSession();
+        const username = session?.username || localStorage.getItem('username');
+        const name = session?.name || localStorage.getItem('name');
+
         const savedAccent = localStorage.getItem('account_accent');
-        
+
         if (savedAccent) {
           setAccentColor(savedAccent);
         } else {
@@ -110,7 +114,7 @@ export default function Navbar() {
           root.style.setProperty('--theme-color', 'var(--accent-blue)');
         }
         root.style.setProperty('--theme-hover', 'color-mix(in srgb, var(--theme-color) 15%, transparent)');
-        
+
         if (username) {
           setIsLoggedIn(true);
           setUserName(name || username);
@@ -142,7 +146,7 @@ export default function Navbar() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username })
-        }).catch(() => {});
+        }).catch(() => { });
       }
     }
   }, [isLoggedIn, router]);
@@ -217,10 +221,10 @@ export default function Navbar() {
         <div className={styles.right}>
           <div className={styles.navLinks}>
             <Link href="/" className={styles.navLink}>Bosh sahifa</Link>
-            <Link href="/aksiyalar" className={styles.navLink} style={{ color: '#f59e0b', fontWeight: 600 }}>Aksiyalar 🔥</Link>
-            <div 
-              style={{ position: 'relative' }} 
-              onMouseEnter={() => setShowDesktopCats(true)} 
+            <Link href="/aksiyalar" className={styles.navLink} style={{ color: '#f59e0b', fontWeight: 600 }}>Aksiyalar </Link>
+            <div
+              style={{ position: 'relative' }}
+              onMouseEnter={() => setShowDesktopCats(true)}
               onMouseLeave={() => setShowDesktopCats(false)}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }} className={styles.navLink}>
@@ -236,23 +240,23 @@ export default function Navbar() {
                     padding: '0.5rem', display: 'flex', flexDirection: 'column', minWidth: '180px',
                     boxShadow: '0 10px 25px rgba(0,0,0,0.3)'
                   }}>
-                  {categories.map(c => (
-                    <Link key={c.slug} href={`/category/${c.slug}`} onClick={() => setShowDesktopCats(false)} style={{
-                      padding: '8px 12px', color: 'var(--text-primary)', textDecoration: 'none',
-                      fontSize: '0.85rem', fontWeight: 500, borderRadius: '6px', whiteSpace: 'nowrap',
-                      transition: 'all 0.2s'
-                    }} 
-                    onMouseEnter={e => {
-                      e.currentTarget.style.background = themeHover;
-                      e.currentTarget.style.color = themeColor;
-                    }} 
-                    onMouseLeave={e => {
-                      e.currentTarget.style.background = 'transparent';
-                      e.currentTarget.style.color = 'var(--text-primary)';
-                    }}>
-                      {c.name}
-                    </Link>
-                  ))}
+                    {categories.map(c => (
+                      <Link key={c.slug} href={`/category/${c.slug}`} onClick={() => setShowDesktopCats(false)} style={{
+                        padding: '8px 12px', color: 'var(--text-primary)', textDecoration: 'none',
+                        fontSize: '0.85rem', fontWeight: 500, borderRadius: '6px', whiteSpace: 'nowrap',
+                        transition: 'all 0.2s'
+                      }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.background = themeHover;
+                          e.currentTarget.style.color = themeColor;
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.background = 'transparent';
+                          e.currentTarget.style.color = 'var(--text-primary)';
+                        }}>
+                        {c.name}
+                      </Link>
+                    ))}
                   </div>
                 </div>
               )}
@@ -275,10 +279,10 @@ export default function Navbar() {
             </div>
             {isLoggedIn ? (
               <>
-                <Link 
-                  href="/account" 
-                  className={styles.actionBtn} 
-                  aria-label="Profil" 
+                <Link
+                  href="/account"
+                  className={styles.actionBtn}
+                  aria-label="Profil"
                   title={userName}
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', background: accentGradient, color: '#fff', fontWeight: 800, fontSize: '0.95rem', textDecoration: 'none' }}
                 >
@@ -297,10 +301,10 @@ export default function Navbar() {
         {/* Mobile right actions (Profile, Menu) */}
         <div className={styles.mobileRightActions}>
           {isLoggedIn ? (
-            <Link 
-              href="/account" 
-              className={styles.mobileActionHeaderBtn} 
-              aria-label="Profil" 
+            <Link
+              href="/account"
+              className={styles.mobileActionHeaderBtn}
+              aria-label="Profil"
               onClick={() => setMobileOpen(false)}
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', background: accentGradient, color: '#fff', fontWeight: 800, fontSize: '0.95rem', textDecoration: 'none', border: 'none' }}
             >
@@ -328,9 +332,9 @@ export default function Navbar() {
           {/* Nav links */}
           <div className={styles.mobileLinks}>
             <Link href="/" className={styles.mobileLink} onClick={() => setMobileOpen(false)}>Bosh sahifa</Link>
-            <Link href="/aksiyalar" className={styles.mobileLink} onClick={() => setMobileOpen(false)} style={{ color: '#f59e0b', fontWeight: 600 }}>Aksiyalar 🔥</Link>
-            <button 
-              className={styles.mobileLink} 
+            <Link href="/aksiyalar" className={styles.mobileLink} onClick={() => setMobileOpen(false)} style={{ color: '#f59e0b', fontWeight: 600 }}>Aksiyalar </Link>
+            <button
+              className={styles.mobileLink}
               onClick={() => setShowMobileCats(!showMobileCats)}
               style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', background: 'none', border: 'none', color: 'inherit', font: 'inherit', cursor: 'pointer', textAlign: 'left' }}
             >

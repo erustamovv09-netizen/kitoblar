@@ -374,6 +374,82 @@
   opacity: 0.7;
 }
 
+.cardActions {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: 1fr 1.25fr;
+  gap: 8px;
+}
+
+.detailsBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--search-bg, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.15));
+  color: var(--text-primary);
+  border-radius: 10px;
+  padding: 9px 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.detailsBtn:hover {
+  background: var(--search-bg);
+  border-color: var(--theme-color, #3b82f6);
+  color: var(--theme-color, #3b82f6);
+}
+
+.buyBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: linear-gradient(135deg, var(--theme-color, #3b82f6), #8b5cf6);
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  padding: 9px 10px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.25);
+  white-space: nowrap;
+}
+
+.buyBtn:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(59, 130, 246, 0.35);
+}
+
+.purchasedBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  border-radius: 10px;
+  color: #10b981;
+  padding: 9px 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.purchasedBtn:hover {
+  background: rgba(16, 185, 129, 0.25);
+}
+
 .cardBtn {
   margin-top: 12px;
   width: 100%;
@@ -515,5 +591,65 @@
   }
   .timerBox {
     min-width: 44px;
+  }
+  .container {
+    padding: 0 0.85rem;
+  }
+  .sectionHeader {
+    margin: 2.5rem 0 1.25rem;
+  }
+  .booksGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+  .bookBody {
+    padding: 0.85rem 0.75rem;
+  }
+  .bookTitle {
+    font-size: 0.88rem;
+  }
+  .bookAuthor {
+    font-size: 0.75rem;
+    margin-bottom: 8px;
+  }
+  .priceRow {
+    gap: 6px;
+    padding-top: 8px;
+    flex-wrap: wrap;
+  }
+  .salePrice {
+    font-size: 0.95rem;
+  }
+  .oldPrice {
+    font-size: 0.72rem;
+  }
+  .cardBtn {
+    padding: 8px 10px;
+    font-size: 0.8rem;
+    border-radius: 10px;
+    margin-top: 8px;
+  }
+  .cardActions {
+    grid-template-columns: 1fr 1.15fr;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .detailsBtn, .buyBtn, .purchasedBtn {
+    padding: 7px 6px;
+    font-size: 0.76rem;
+    border-radius: 8px;
+    gap: 4px;
+  }
+  .discountRibbon {
+    font-size: 0.68rem;
+    padding: 3px 8px;
+    top: 8px;
+    left: 8px;
+  }
+}
+
+@media (max-width: 360px) {
+  .booksGrid {
+    grid-template-columns: 1fr;
   }
 }

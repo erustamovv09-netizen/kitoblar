@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { BookOpen, User, Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { getApiBaseUrl } from '../lib/api';
+import { saveUserSession } from '../lib/session';
+import { getTodayUzbekDate } from '../lib/date';
 import styles from './register.module.css';
 
 function RegisterForm() {
@@ -73,13 +75,14 @@ function RegisterForm() {
 
       const data = await res.json();
       
-      localStorage.setItem('name', data.name || data.username);
-      localStorage.setItem('username', data.username);
-      localStorage.setItem('email', data.email || '');
-      localStorage.setItem('join_date', new Date().toLocaleDateString('uz-UZ', {
-        year: 'numeric', month: 'long', day: 'numeric'
-      }));
-      window.dispatchEvent(new Event('auth-changed'));
+      const joinDate = getTodayUzbekDate();
+
+      saveUserSession({
+        name: data.name || data.username,
+        username: data.username,
+        email: data.email || email.trim(),
+        join_date: joinDate,
+      });
       
       router.push(redirectUrl);
     } catch (err: any) {

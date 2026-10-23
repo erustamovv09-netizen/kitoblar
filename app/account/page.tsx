@@ -35,6 +35,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { booksDB } from '../lib/books';
 import { api } from '../lib/api';
 import styles from './page.module.css';
+import { restoreUserSession, saveUserSession, clearUserSession } from '../lib/session';
+import { formatUzbekDate, getTodayUzbekDate } from '../lib/date';
 
 type Favorite = { id: string; title: string };
 type BookStatus = 'reading' | 'planned' | 'completed';
@@ -111,10 +113,12 @@ export default function AccountPage() {
     const emailRef = useRef<HTMLInputElement | null>(null);
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-    // Load data from LocalStorage on mount
+    // Load data from LocalStorage / Cookies on mount
     useEffect(() => {
-        const storedName = localStorage.getItem('name') || localStorage.getItem('username');
-        const storedEmail = localStorage.getItem('email');
+        // Multi-tier session recovery (survives Safari ITP and cache wipe)
+        const session = restoreUserSession();
+        const storedName = session?.name || localStorage.getItem('name') || session?.username || localStorage.getItem('username');
+        const storedEmail = session?.email || localStorage.getItem('email');
         const storedBio = localStorage.getItem('user_bio');
         const rawFav = localStorage.getItem('favorites');
         const rawStatuses = localStorage.getItem('book_statuses');
@@ -142,12 +146,12 @@ export default function AccountPage() {
             setAvatarEmoji(storedAvatar);
         }
 
-        // Set join date if not yet stored
-        if (!storedJoin) {
-            storedJoin = new Date().toLocaleDateString('uz-UZ', { year: 'numeric', month: 'long', day: 'numeric' });
-            localStorage.setItem('join_date', storedJoin);
+        // Sanitize or set join date (fixes Chrome M06 CLDR bug)
+        const cleanJoin = storedJoin ? formatUzbekDate(storedJoin) : getTodayUzbekDate();
+        if (!storedJoin || storedJoin !== cleanJoin) {
+            localStorage.setItem('join_date', cleanJoin);
         }
-        setJoinDate(storedJoin);
+        setJoinDate(cleanJoin);
 
         if (storedGoal) setDailyGoal(Number(storedGoal));
         if (storedProgress) setTodayProgress(Number(storedProgress));
@@ -262,8 +266,13 @@ export default function AccountPage() {
     }
 
     function saveProfile() {
-        localStorage.setItem('username', name);
-        localStorage.setItem('email', email);
+        const currentUsername = localStorage.getItem('username') || name;
+        saveUserSession({
+            username: currentUsername,
+            name: name,
+            email: email,
+            join_date: joinDate,
+        });
         localStorage.setItem('user_bio', bio);
         setEditing(false);
         setIsLoggedIn(true);
@@ -368,7 +377,7 @@ export default function AccountPage() {
             bookTitle,
             text: quoteText.trim(),
             page: quotePageNum.trim() || undefined,
-            date: new Date().toLocaleDateString('uz-UZ', { day: 'numeric', month: 'short', year: 'numeric' }),
+            date: getTodayUzbekDate(),
             tag: quoteTag
         };
 
@@ -427,18 +436,7 @@ export default function AccountPage() {
     }
 
     function logout() {
-        localStorage.removeItem('username');
-        localStorage.removeItem('name');
-        localStorage.removeItem('email');
-        localStorage.removeItem('user_bio');
-        localStorage.removeItem('account_accent');
-        localStorage.removeItem('account_avatar');
-        localStorage.removeItem('join_date');
-        localStorage.removeItem('daily_goal');
-        localStorage.removeItem('today_progress');
-        localStorage.removeItem('streak');
-        localStorage.removeItem('book_statuses');
-        localStorage.removeItem('book_quotes');
+        clearUserSession();
         
         setName('');
         setEmail('');
@@ -636,7 +634,7 @@ export default function AccountPage() {
                                 {joinDate && (
                                     <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '5px', justifyContent: 'center' }}>
                                         <Calendar size={13} />
-                                        {joinDate} dan beri a'zo
+                                        {formatUzbekDate(joinDate)}{" "}dan beri a&apos;zo
                                     </p>
                                 )}
                                 {bio && (
@@ -903,7 +901,7 @@ export default function AccountPage() {
                                                         <Calendar size={16} style={{ color: 'var(--user-accent, var(--accent-blue))', flexShrink: 0 }} />
                                                         <div>
                                                             <span className={styles.fieldTitle}>A'zolik sanasi</span>
-                                                            <p style={{ fontSize: '0.95rem', marginTop: '2px' }}>{joinDate}</p>
+                                                            <p style={{ fontSize: '0.95rem', marginTop: '2px' }}>{formatUzbekDate(joinDate)}</p>
                                                         </div>
                                                     </div>
                                                 )}

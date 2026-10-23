@@ -40,7 +40,7 @@ export default function Footer() {
           <div className={styles.links}>
             <Link href="/" className={styles.link}>Bosh sahifa</Link>
             <Link href="/search" className={styles.link}>Barcha kitoblar</Link>
-            <Link href="/aksiyalar" className={styles.link} style={{ color: '#f59e0b', fontWeight: 600 }}>Aksiyalar 🔥</Link>
+            <Link href="/aksiyalar" className={styles.link} style={{ color: '#f59e0b', fontWeight: 600 }}>Aksiyalar </Link>
             <Link href="/favorites" className={styles.link}>Sevimlilar</Link>
             <Link href="/account" className={styles.link}>Shaxsiy kabinet</Link>
           </div>

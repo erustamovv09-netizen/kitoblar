@@ -107,7 +107,7 @@ export default function AdminBooksPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '600px' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'var(--search-bg)' }}>
-                  {['Kitob', 'Muallif', 'Kategoriya', 'Narxi', 'Reyting', 'Audio', 'Amallar'].map(h => (
+                  {['Kitob', 'Muallif', 'Kategoriya', 'Narxlar (E-kitob / Qog\'oz)', 'Reyting', 'Audio', 'Amallar'].map(h => (
                     <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
@@ -124,7 +124,14 @@ export default function AdminBooksPage() {
                     <td style={{ padding: '12px 16px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <div style={{ width: '36px', height: '48px', borderRadius: '6px', overflow: 'hidden', flexShrink: 0, background: 'var(--border-color)' }}>
-                          <img src={book.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <img
+                            src={book.image}
+                            alt=""
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            onError={e => {
+                              (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop';
+                            }}
+                          />
                         </div>
                         <span style={{ fontWeight: 600, fontSize: '0.88rem', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
                           {book.title}
@@ -137,7 +144,16 @@ export default function AdminBooksPage() {
                         {book.category}
                       </span>
                     </td>
-                    <td style={{ padding: '12px 16px', fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent-blue)', whiteSpace: 'nowrap' }}>{book.price}</td>
+                    <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                        <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--accent-blue)' }} title="Elektron format narxi">
+                          📱 {book.priceElectronic || book.price}
+                        </span>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }} title="Qog'oz format narxi">
+                          📖 {book.pricePaper || book.price}
+                        </span>
+                      </div>
+                    </td>
                     <td style={{ padding: '12px 16px', fontSize: '0.85rem', color: '#f59e0b', fontWeight: 700, whiteSpace: 'nowrap' }}>★ {book.rating}</td>
                     <td style={{ padding: '12px 16px' }}>
                       {book.hasAudio
@@ -177,7 +193,14 @@ export default function AdminBooksPage() {
               }}>
                 {/* Rasm */}
                 <div style={{ width: '52px', height: '70px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, background: 'var(--border-color)' }}>
-                  <img src={book.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img
+                    src={book.image}
+                    alt=""
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    onError={e => {
+                      (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop';
+                    }}
+                  />
                 </div>
                 {/* Info */}
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -187,7 +210,12 @@ export default function AdminBooksPage() {
                     <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 7px', background: 'rgba(155,109,255,0.12)', color: 'var(--accent-purple)', borderRadius: '99px' }}>
                       {book.category}
                     </span>
-                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--accent-blue)' }}>{book.price}</span>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--accent-blue)' }}>
+                      📱 {book.priceElectronic || book.price}
+                    </span>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                      📖 {book.pricePaper || book.price}
+                    </span>
                     <span style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 700 }}>★ {book.rating}</span>
                     {book.hasAudio && <Headphones size={14} style={{ color: '#10b981' }} />}
                   </div>

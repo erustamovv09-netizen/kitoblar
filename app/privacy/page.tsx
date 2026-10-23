@@ -214,6 +214,13 @@ export default function PrivacyPage() {
           text-decoration: none;
         }
         .back-link:hover { opacity: 0.75; }
+        @media (max-width: 640px) {
+          .privacy-hero { padding: 3.5rem 1rem 2.5rem; }
+          .privacy-body { padding: 2rem 1rem; }
+          .privacy-intro { padding: 1rem 1.25rem; font-size: 0.95rem; }
+          .privacy-section { padding: 1.25rem 1.25rem; }
+          .privacy-highlight { padding: 1.25rem 1.25rem; flex-direction: column; gap: 0.75rem; }
+        }
       `}</style>
     </main>
   );

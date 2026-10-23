@@ -11,11 +11,18 @@ interface ImageZoomProps {
   alt: string;
 }
 
+const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop';
+
 export default function ImageZoom({ src, alt }: ImageZoomProps) {
   const [open, setOpen] = useState(false);
   const [scale, setScale] = useState(1);
   const [translate, setTranslate] = useState({ x: 0, y: 0 });
   const [mounted, setMounted] = useState(false);
+  const [imgSrc, setImgSrc] = useState(src || FALLBACK_IMAGE);
+
+  useEffect(() => {
+    setImgSrc(src || FALLBACK_IMAGE);
+  }, [src]);
   
   const lastTouchDistance = useRef<number | null>(null);
   const lastPan = useRef<{ x: number; y: number } | null>(null);
@@ -178,13 +185,14 @@ export default function ImageZoom({ src, alt }: ImageZoomProps) {
           >
             <div style={{ position: 'relative', width: '100%', height: '100%' }}>
               <Image 
-                src={safeSrc} 
+                src={imgSrc} 
                 alt={alt || "Kitob rasmi"} 
                 fill 
                 unoptimized 
                 className={styles.image} 
                 sizes="(max-width: 768px) 100vw, 380px"
                 priority
+                onError={() => setImgSrc(FALLBACK_IMAGE)}
               />
             </div>
 
@@ -231,11 +239,12 @@ export default function ImageZoom({ src, alt }: ImageZoomProps) {
             onMouseUp={onMouseUp}
           >
             <img
-              src={src}
+              src={imgSrc}
               alt={alt}
               className={styles.lightboxImg}
               onClick={e => e.stopPropagation()}
               onDoubleClick={handleDoubleClick}
+              onError={() => setImgSrc(FALLBACK_IMAGE)}
               style={{
                 transform: `translate(${translate.x}px, ${translate.y}px) scale(${scale})`,
                 cursor: scale > 1 ? 'grab' : 'zoom-in'

@@ -259,9 +259,15 @@ export default function ContactPage() {
         }
         .back-link:hover { opacity: 0.75; }
         @media (max-width: 768px) {
-          .contact-grid { grid-template-columns: 1fr; }
+          .contact-grid { grid-template-columns: 1fr; gap: 2rem; }
           .form-row { grid-template-columns: 1fr; }
           .contact-form-wrap { padding: 1.75rem; }
+          .contact-hero { padding: 3rem 1rem 2.5rem; }
+          .contact-body { padding: 2.5rem 1rem; }
+        }
+        @media (max-width: 480px) {
+          .contact-form-wrap { padding: 1.25rem 1rem; }
+          .contact-card { padding: 1rem 1.15rem; }
         }
       `}</style>
     </main>

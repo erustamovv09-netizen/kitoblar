@@ -263,7 +263,7 @@
   top: 0;
   left: 0;
   bottom: 0;
-  width: 320px;
+  width: min(320px, 85vw);
   display: flex;
   flex-direction: column;
   z-index: 510;
@@ -513,7 +513,317 @@
     margin-bottom: 1.5rem;
   }
   
+  .paragraph {
+    text-align: left;
+    line-height: 1.65;
+  }
+
   .navBtn span {
     display: none;
   }
+
+  .paywallOptionsGrid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .paywallCard {
+    padding: 1.5rem 1rem;
+  }
+
+  .paywallTitle {
+    font-size: 1.35rem;
+  }
+}
+
+/* Preview & Paywall Styling */
+.previewBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  letter-spacing: 0.02em;
+}
+
+.headerBuyBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+  color: #ffffff;
+  border: none;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.25);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.headerBuyBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(139, 92, 246, 0.35);
+}
+
+.paywallCard {
+  margin-top: 3.5rem;
+  padding: 2.25rem 2rem;
+  border-radius: 20px;
+  position: relative;
+  overflow: hidden;
+  font-family: var(--font-inter), sans-serif;
+  text-align: center;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.4);
+}
+
+.themeDark .paywallCard {
+  background: linear-gradient(180deg, rgba(20, 24, 38, 0.95) 0%, rgba(13, 16, 26, 0.98) 100%);
+}
+
+.themeLight .paywallCard {
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+  border-color: rgba(99, 102, 241, 0.25);
+  box-shadow: 0 15px 30px -10px rgba(0, 0, 0, 0.08);
+}
+
+.themeSepia .paywallCard {
+  background: linear-gradient(180deg, #faf3e5 0%, #f4e8cf 100%);
+  border-color: rgba(180, 130, 70, 0.3);
+}
+
+.paywallTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  background: rgba(139, 92, 246, 0.15);
+  color: #a78bfa;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.themeLight .paywallTag {
+  background: rgba(99, 102, 241, 0.12);
+  color: #4f46e5;
+  border-color: rgba(99, 102, 241, 0.25);
+}
+
+.paywallTitle {
+  font-size: 1.65rem;
+  font-weight: 800;
+  margin-bottom: 0.75rem;
+  line-height: 1.3;
+}
+
+.paywallDesc {
+  font-size: 0.98rem;
+  opacity: 0.8;
+  max-width: 580px;
+  margin: 0 auto 2rem;
+  line-height: 1.65;
+}
+
+.paywallOptionsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  margin-bottom: 1.75rem;
+  text-align: left;
+}
+
+.formatCard {
+  padding: 1.25rem;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border: 1px solid rgba(128, 128, 128, 0.2);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+  position: relative;
+}
+
+.themeDark .formatCard {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.themeLight .formatCard {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+
+.themeSepia .formatCard {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(140, 100, 50, 0.2);
+}
+
+.formatCard:hover {
+  transform: translateY(-2px);
+  border-color: #8b5cf6;
+}
+
+.formatCardFeatured {
+  border-color: rgba(139, 92, 246, 0.5) !important;
+  background: linear-gradient(145deg, rgba(139, 92, 246, 0.08), rgba(59, 130, 246, 0.05)) !important;
+}
+
+.formatCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.formatBadge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: #10b981;
+  color: #ffffff;
+  margin-left: auto;
+}
+
+.formatFeatures {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1rem;
+  font-size: 0.85rem;
+  opacity: 0.75;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.formatPriceRow {
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px dashed rgba(128, 128, 128, 0.2);
+  margin-bottom: 1rem;
+}
+
+.formatPriceLabel {
+  font-size: 0.75rem;
+  opacity: 0.6;
+  display: block;
+}
+
+.formatPriceValue {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #3b82f6;
+}
+
+.themeDark .formatPriceValue {
+  color: #60a5fa;
+}
+
+.formatBtnPrimary {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+  color: #ffffff;
+  border: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.formatBtnPrimary:hover {
+  opacity: 0.95;
+  transform: translateY(-1px);
+}
+
+.formatBtnSecondary {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: transparent;
+  color: inherit;
+  border: 1px solid rgba(128, 128, 128, 0.3);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.formatBtnSecondary:hover {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.paywallFooterNote {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  opacity: 0.65;
+}
+
+.lockedChapterView {
+  padding: 4rem 1.5rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-inter), sans-serif;
+}
+
+.lockedIconCircle {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.25rem;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.sidebarLockedTag {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.sidebarFreeTag {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  margin-left: auto;
 }

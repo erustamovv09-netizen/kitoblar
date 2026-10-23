@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Clock } from 'lucide-react';
 import styles from './page.module.css';
 import dynamic from 'next/dynamic';
 const BookActions = dynamic(() => import('./BookActions').then((m) => m.default));
@@ -11,6 +11,53 @@ import { api } from '@/app/lib/api';
 import ImageZoom from './ImageZoom';
 import BookReviews from './BookReviews';
 import type { Book } from '@/app/lib/api';
+
+function DetailCountdown({ expiresAt }: { expiresAt: string }) {
+  const [mounted, setMounted] = useState(false);
+  const calc = () => {
+    const diff = new Date(expiresAt).getTime() - Date.now();
+    if (diff <= 0) return null;
+    const d = Math.floor(diff / 86400000);
+    const h = Math.floor((diff % 86400000) / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+    return { d, h, m, s };
+  };
+
+  const [left, setLeft] = useState<{ d: number; h: number; m: number; s: number } | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+    setLeft(calc());
+    const t = setInterval(() => {
+      setLeft(calc());
+    }, 1000);
+    return () => clearInterval(t);
+  }, [expiresAt]);
+
+  if (!mounted || !left) return null;
+
+  return (
+    <div style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '6px',
+      background: 'rgba(239, 68, 68, 0.12)',
+      border: '1px solid rgba(239, 68, 68, 0.28)',
+      color: '#f87171',
+      fontSize: '0.82rem',
+      fontWeight: 700,
+      padding: '5px 12px',
+      borderRadius: '99px',
+    }}>
+      <Clock size={14} style={{ color: '#ef4444' }} />
+      <span>
+        Qolgan vaqt: {left.d > 0 ? `${left.d}k ` : ''}
+        {String(left.h).padStart(2, '0')}:{String(left.m).padStart(2, '0')}:{String(left.s).padStart(2, '0')}
+      </span>
+    </div>
+  );
+}
 
 export default function BookDetails() {
   const params = useParams();
@@ -96,9 +143,77 @@ export default function BookDetails() {
               <div className={styles.metaItem}>{book.publishedYear}</div>
             </div>
 
-            <div className={styles.priceRow}>
-              <span className={styles.price}>{book.price}</span>
-            </div>
+            {(() => {
+              const numericPrice = Number(String(book.price || '').replace(/[^\d]/g, '')) || 0;
+              const saleNum = Number(String((book as any).sale_price || (book as any).salePrice || '').replace(/[^\d]/g, '')) || 0;
+              const expStr = (book as any).discount_expires_at || (book as any).discountExpiresAt;
+              const isExpired = expStr ? new Date(expStr).getTime() < Date.now() : false;
+              const hasDiscount = saleNum > 0 && numericPrice > 0 && saleNum < numericPrice && !isExpired;
+              const discountPercent = hasDiscount ? Math.round((1 - saleNum / numericPrice) * 100) : 0;
+
+              return (
+                <>
+                  <div className={styles.priceRow}>
+                    {hasDiscount ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '1.75rem', fontWeight: 800, color: '#ef4444' }}>
+                          {saleNum.toLocaleString('uz-UZ')} so&apos;m
+                        </span>
+                        <span style={{ fontSize: '1.1rem', color: 'var(--text-secondary)', textDecoration: 'line-through', opacity: 0.8 }}>
+                          {book.price}
+                        </span>
+                        <span style={{
+                          background: 'linear-gradient(135deg, #ef4444, #f97316)',
+                          color: '#fff',
+                          padding: '4px 10px',
+                          borderRadius: '99px',
+                          fontSize: '0.8rem',
+                          fontWeight: 700
+                        }}>
+                          -{discountPercent}% AKSIYA
+                        </span>
+                        <DetailCountdown expiresAt={expStr || new Date(Date.now() + 7 * 86400000).toISOString()} />
+                      </div>
+                    ) : (
+                      <span className={styles.price}>{book.price}</span>
+                    )}
+                  </div>
+
+                  {/* Format narxlari: Elektron va Qog'oz */}
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '12px', marginBottom: '8px' }}>
+                    <div style={{
+                      padding: '8px 12px',
+                      borderRadius: '10px',
+                      background: 'rgba(79, 142, 247, 0.1)',
+                      border: '1px solid rgba(79, 142, 247, 0.25)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      fontSize: '0.85rem'
+                    }}>
+                      <span>📱</span>
+                      <span style={{ color: 'var(--text-secondary)' }}>Elektron{book.hasAudio ? ' + Audio' : ''}:</span>
+                      <strong style={{ color: '#38bdf8' }}>{book.priceElectronic || (saleNum > 0 ? `${saleNum.toLocaleString('uz-UZ')} so'm` : book.price)}</strong>
+                    </div>
+
+                    <div style={{
+                      padding: '8px 12px',
+                      borderRadius: '10px',
+                      background: 'rgba(155, 109, 255, 0.1)',
+                      border: '1px solid rgba(155, 109, 255, 0.25)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      fontSize: '0.85rem'
+                    }}>
+                      <span>📖</span>
+                      <span style={{ color: 'var(--text-secondary)' }}>Qog&apos;oz kitob:</span>
+                      <strong style={{ color: '#a78bfa' }}>{book.pricePaper || book.price}</strong>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
 
             <BookActions book={book} recommended={recommended} />
           </div>

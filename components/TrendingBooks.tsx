@@ -30,9 +30,26 @@ export default function TrendingBooks() {
   const [showAllTrending, setShowAllTrending] = useState(false);
 
   useEffect(() => {
+    // 1. Agar cache mavjud bo'lsa darhol ko'rsatish (Render cold-start kutmasdan)
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('cached_full_books');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setTrending(parsed);
+            setLoading(false);
+          }
+        }
+      } catch {}
+    }
+
+    // 2. Eng yangi ma'lumotlarni olish
     async function load() {
       const data = await api.getBooks();
-      setTrending(data || []);
+      if (data && data.length > 0) {
+        setTrending(data);
+      }
       setLoading(false);
     }
     load();

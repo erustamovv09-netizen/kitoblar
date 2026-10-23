@@ -13,9 +13,13 @@ import {
   Zap,
   Gift,
   Star,
-  Tag
+  Tag,
+  Eye,
+  ShoppingBag,
+  CheckCircle2
 } from 'lucide-react';
 import { api, Book } from '../lib/api';
+import PurchaseModal from '@/components/PurchaseModal';
 import styles from './page.module.css';
 
 interface DiscountedBook extends Book {
@@ -57,6 +61,7 @@ function getDiscountInfo(book: Book): DiscountedBook | null {
 }
 
 function CountdownTimer({ expiresAt }: { expiresAt: string }) {
+  const [mounted, setMounted] = useState(false);
   const calcLeft = () => {
     const diff = new Date(expiresAt).getTime() - Date.now();
     if (diff <= 0) return { d: 0, h: 0, m: 0, s: 0 };
@@ -66,11 +71,15 @@ function CountdownTimer({ expiresAt }: { expiresAt: string }) {
     const s = Math.floor((diff % 60000) / 1000);
     return { d, h, m, s };
   };
-  const [left, setLeft] = useState(calcLeft);
+  const [left, setLeft] = useState<{ d: number; h: number; m: number; s: number } | null>(null);
   useEffect(() => {
+    setMounted(true);
+    setLeft(calcLeft());
     const t = setInterval(() => setLeft(calcLeft()), 1000);
     return () => clearInterval(t);
   }, [expiresAt]);
+
+  if (!mounted || !left) return null;
 
   return (
     <div style={{ display: 'flex', gap: '6px', alignItems: 'center', fontSize: '0.75rem', color: '#f87171', fontWeight: 700 }}>
@@ -81,9 +90,52 @@ function CountdownTimer({ expiresAt }: { expiresAt: string }) {
   );
 }
 
+function AksiyalarImage({ src, alt }: { src: string; alt: string }) {
+  const FALLBACK = 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop';
+  const [img, setImg] = useState(src || FALLBACK);
+  useEffect(() => {
+    setImg(src || FALLBACK);
+  }, [src]);
+
+  return (
+    <Image
+      src={img}
+      alt={alt}
+      fill
+      sizes="(max-width: 768px) 100vw, 300px"
+      className={styles.bookImg}
+      unoptimized
+      onError={() => setImg(FALLBACK)}
+    />
+  );
+}
+
 export default function AksiyalarPage() {
   const [discountedBooks, setDiscountedBooks] = useState<DiscountedBook[]>([]);
   const [loading, setLoading] = useState(true);
+  const [purchasedIds, setPurchasedIds] = useState<string[]>([]);
+  const [selectedBookForPurchase, setSelectedBookForPurchase] = useState<DiscountedBook | null>(null);
+
+  useEffect(() => {
+    function readPurchases() {
+      try {
+        const raw = localStorage.getItem('purchased_books');
+        if (raw) {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) {
+            setPurchasedIds(list.map((p: any) => String(p.id)));
+          }
+        }
+      } catch {}
+    }
+    readPurchases();
+    window.addEventListener('book-purchased', readPurchases);
+    window.addEventListener('storage', readPurchases);
+    return () => {
+      window.removeEventListener('book-purchased', readPurchases);
+      window.removeEventListener('storage', readPurchases);
+    };
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -196,14 +248,7 @@ export default function AksiyalarPage() {
                   </div>
 
                   <Link href={`/book/${book.id}`} className={styles.imageWrapper}>
-                    <Image
-                      src={book.image}
-                      alt={book.title}
-                      fill
-                      sizes="(max-width: 768px) 100vw, 300px"
-                      className={styles.bookImg}
-                      unoptimized
-                    />
+                    <AksiyalarImage src={book.image} alt={book.title} />
                   </Link>
 
                   <div className={styles.bookBody}>
@@ -235,9 +280,24 @@ export default function AksiyalarPage() {
                           {book.originalPrice.toLocaleString('uz-UZ')} so&apos;m
                         </span>
                       </div>
-                      <Link href={`/book/${book.id}`} className={styles.cardBtn}>
-                        <BookOpen size={16} /> Batafsil &amp; Xarid
-                      </Link>
+                      <div className={styles.cardActions}>
+                        <Link href={`/book/${book.id}`} className={styles.detailsBtn}>
+                          <Eye size={15} /> Batafsil
+                        </Link>
+                        {purchasedIds.includes(String(book.id)) ? (
+                          <Link href={`/book/${book.id}/read`} className={styles.purchasedBtn}>
+                            <CheckCircle2 size={15} /> O&apos;qish
+                          </Link>
+                        ) : (
+                          <button
+                            type="button"
+                            className={styles.buyBtn}
+                            onClick={() => setSelectedBookForPurchase(book)}
+                          >
+                            <ShoppingBag size={15} /> Xarid
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </motion.div>
@@ -280,6 +340,16 @@ export default function AksiyalarPage() {
           </div>
         </div>
       </div>
+
+      {/* Interactive Purchase Modal */}
+      <PurchaseModal
+        isOpen={!!selectedBookForPurchase}
+        onClose={() => setSelectedBookForPurchase(null)}
+        book={selectedBookForPurchase}
+        onSuccess={(bookId) => {
+          setPurchasedIds((prev) => Array.from(new Set([...prev, String(bookId)])));
+        }}
+      />
     </main>
   );
 }

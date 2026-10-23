@@ -3,35 +3,80 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Flame } from 'lucide-react';
+import { Flame, Clock } from 'lucide-react';
 import { api, Book } from '@/app/lib/api';
 import styles from './Hero.module.css';
 
 const MAX_CHARS = 120;
 
+function HeroCountdown({ expiresAt }: { expiresAt: string }) {
+  const [mounted, setMounted] = useState(false);
+  const calc = () => {
+    const diff = new Date(expiresAt).getTime() - Date.now();
+    if (diff <= 0) return null;
+    const d = Math.floor(diff / 86400000);
+    const h = Math.floor((diff % 86400000) / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+    return { d, h, m, s };
+  };
+
+  const [left, setLeft] = useState<{ d: number; h: number; m: number; s: number } | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+    setLeft(calc());
+    const t = setInterval(() => {
+      setLeft(calc());
+    }, 1000);
+    return () => clearInterval(t);
+  }, [expiresAt]);
+
+  if (!mounted || !left) return null;
+
+  return (
+    <div style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '7px',
+      background: 'rgba(239, 68, 68, 0.14)',
+      border: '1px solid rgba(239, 68, 68, 0.3)',
+      padding: '5px 13px',
+      borderRadius: '999px',
+      color: '#fca5a5',
+      fontSize: '0.84rem',
+      fontWeight: 700,
+      letterSpacing: '0.02em',
+      boxShadow: '0 0 12px rgba(239, 68, 68, 0.18)'
+    }}>
+      <Clock size={14} style={{ color: '#ef4444' }} />
+      <span>Chegirma tugashiga: <strong style={{ color: '#fff' }}>{left.d > 0 ? `${left.d} kun ` : ''}{String(left.h).padStart(2, '0')}:{String(left.m).padStart(2, '0')}:{String(left.s).padStart(2, '0')}</strong></span>
+    </div>
+  );
+}
+
 export default function Hero() {
-  const [heroBook, setHeroBook] = useState<Book | null>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const cached = localStorage.getItem('cached_hero_top_book');
-        if (cached) return JSON.parse(cached);
-      } catch {}
-    }
-    return null;
-  });
-  const [loading, setLoading] = useState(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const cached = localStorage.getItem('cached_hero_top_book');
-        if (cached) return false;
-      } catch {}
-    }
-    return true;
-  });
+  const [heroBook, setHeroBook] = useState<Book | null>(null);
+  const [loading, setLoading] = useState(true);
   const [descExpanded, setDescExpanded] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
+
+    // 1. Keshdan darhol ko'rsatish
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('cached_hero_top_book');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && parsed.id) {
+            setHeroBook(parsed);
+            setLoading(false);
+          }
+        }
+      } catch {}
+    }
+
     async function load() {
       try {
         const books = await api.getBooks();
@@ -102,6 +147,14 @@ export default function Hero() {
     ? bookDesc.slice(0, MAX_CHARS).trimEnd()
     : bookDesc;
 
+  // Chegirma ma'lumotlari
+  const numericPrice = Number(String(heroBook.price || '').replace(/[^\d]/g, '')) || 0;
+  const saleNum = Number(String((heroBook as any).sale_price || (heroBook as any).salePrice || '').replace(/[^\d]/g, '')) || 0;
+  const expStr = (heroBook as any).discount_expires_at || (heroBook as any).discountExpiresAt;
+  const isExpired = expStr ? new Date(expStr).getTime() < Date.now() : false;
+  const hasDiscount = saleNum > 0 && numericPrice > 0 && saleNum < numericPrice && !isExpired;
+  const discountPercent = hasDiscount ? Math.round((1 - saleNum / numericPrice) * 100) : 0;
+
   return (
     <section className={styles.hero}>
       <div className={styles.container}>
@@ -111,14 +164,37 @@ export default function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
         >
-          <motion.div
-            className={styles.badge}
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-          >
-            Hafta kitobi
-          </motion.div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <motion.div
+              className={styles.badge}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+            >
+              Hafta kitobi
+            </motion.div>
+            {hasDiscount && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                style={{
+                  background: 'linear-gradient(135deg, #ef4444, #f97316)',
+                  color: '#fff',
+                  padding: '4px 12px',
+                  borderRadius: '999px',
+                  fontSize: '0.78rem',
+                  fontWeight: 800,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.35)'
+                }}
+              >
+                <Flame size={13} fill="#fff" />
+                <span>-{discountPercent}% AKSIYA</span>
+              </motion.div>
+            )}
+          </div>
           <motion.h1
             className={styles.title}
             initial={{ opacity: 0, y: 20 }}
@@ -180,6 +256,35 @@ export default function Hero() {
               )}
             </p>
           </motion.div>
+
+          {hasDiscount && (
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.55 }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '14px',
+                flexWrap: 'wrap',
+                background: 'rgba(239, 68, 68, 0.08)',
+                border: '1px solid rgba(239, 68, 68, 0.25)',
+                padding: '10px 18px',
+                borderRadius: '14px',
+                width: 'fit-content'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                <span style={{ fontSize: '1.45rem', fontWeight: 800, color: '#f87171' }}>
+                  {saleNum.toLocaleString('uz-UZ')} so&apos;m
+                </span>
+                <span style={{ fontSize: '0.95rem', color: 'rgba(255,255,255,0.45)', textDecoration: 'line-through' }}>
+                  {heroBook.price}
+                </span>
+              </div>
+              <HeroCountdown expiresAt={expStr || new Date(Date.now() + 7 * 86400000).toISOString()} />
+            </motion.div>
+          )}
 
           <motion.div
             className={styles.buttons}

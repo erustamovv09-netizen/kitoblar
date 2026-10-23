@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowLeft, BookOpen, Upload, Save, CheckCircle2, Link2, ImageIcon, X, Server, HardDrive, Star } from 'lucide-react';
 import { countChaptersInContent } from '@/app/lib/chapters';
-import { getApiBaseUrl } from '@/app/lib/api';
+import { getApiBaseUrl, saveCoverOverride, saveDiscountOverride, savePricingOverride } from '@/app/lib/api';
 
 const getBase = () => getApiBaseUrl();
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop';
@@ -38,7 +38,9 @@ export default function AddBookPage() {
     rating: '5.0',
     content: '',
     salePrice: '',
-    discountDays: ''
+    discountDays: '',
+    priceElectronic: '',
+    pricePaper: '',
   });
   const [imageMode, setImageMode] = useState<ImageMode>('url');
   const [previewUrl, setPreviewUrl] = useState('');
@@ -139,7 +141,8 @@ export default function AddBookPage() {
       title: '', author: '', price: '', description: '',
       pages: '', language: "O'zbek tili", publishedYear: new Date().getFullYear().toString(),
       hasAudio: false, audioUrl: '', imageUrl: '', isWeeklyTop: false,
-      rating: '5.0', content: '', salePrice: '', discountDays: ''
+      rating: '5.0', content: '', salePrice: '', discountDays: '',
+      priceElectronic: '', pricePaper: ''
     });
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -153,6 +156,9 @@ export default function AddBookPage() {
     }
     setLoading(true);
 
+    const priceElectronicNum = Number((form.priceElectronic || '').replace(/\D/g, '')) || null;
+    const pricePaperNum = Number((form.pricePaper || '').replace(/\D/g, '')) || null;
+
     // ── 1. Try Django Backend ─────────────────────────────────────
     if (selectedCategoryId) {
       try {
@@ -161,7 +167,12 @@ export default function AddBookPage() {
         fd.append('author', form.author.trim());
         fd.append('category', String(selectedCategoryId));
         fd.append('price', String(Number(form.price.replace(/\D/g, '')) || 0));
-        fd.append('description', form.description);
+        
+        let descToSave = (form.description || '').replace(/<!--DISCOUNT:.*?-->/g, '').replace(/<!--PRICING:.*?-->/g, '').trim();
+        if (priceElectronicNum != null || pricePaperNum != null) {
+          descToSave = `${descToSave}\n<!--PRICING:${JSON.stringify({ price_electronic: priceElectronicNum, price_paper: pricePaperNum })}-->`;
+        }
+        fd.append('description', descToSave);
         fd.append('pages', String(Number(form.pages) || 0));
         fd.append('language', form.language || "O'zbek tili");
         const yearDigits = (form.publishedYear || '').match(/\d{4}/)?.[0] || String(new Date().getFullYear());
@@ -172,15 +183,20 @@ export default function AddBookPage() {
         fd.append('content', form.content || '');
         // Chegirma ma'lumotlari
         const salePriceNum = Number(form.salePrice.replace(/\D/g, '')) || 0;
-        if (salePriceNum > 0) fd.append('sale_price', String(salePriceNum));
-        if (form.discountDays && Number(form.discountDays) > 0) {
+        let expIso: string | null = null;
+        if (salePriceNum > 0) {
+          fd.append('sale_price', String(salePriceNum));
+          const days = form.discountDays && Number(form.discountDays) > 0 ? Number(form.discountDays) : 7;
           const expDate = new Date();
-          expDate.setDate(expDate.getDate() + Number(form.discountDays));
-          fd.append('discount_expires_at', expDate.toISOString());
+          expDate.setDate(expDate.getDate() + days);
+          expIso = expDate.toISOString();
+          fd.append('discount_expires_at', expIso);
         }
 
         // Image: prefer actual file; for URL mode, try to fetch & re-upload
+        let imageForLocal = form.imageUrl || FALLBACK_IMAGE;
         if (imageFile) {
+          imageForLocal = await compressImage(imageFile);
           fd.append('cover_image', imageFile);
         } else if (form.imageUrl) {
           try {
@@ -201,13 +217,30 @@ export default function AddBookPage() {
 
         if (response.ok || response.status === 201) {
           const createdBook = await response.json();
+          const bookId = String(createdBook.id);
+          // Rasm va chegirma override larini saqlash
+          if (imageForLocal) {
+            saveCoverOverride(bookId, imageForLocal);
+          }
+          if (salePriceNum > 0) {
+            saveDiscountOverride(bookId, salePriceNum, expIso);
+          }
+          if (priceElectronicNum != null || pricePaperNum != null) {
+            savePricingOverride(bookId, priceElectronicNum, pricePaperNum);
+          }
           // Store publisher format locally
           try {
             const stored: any[] = JSON.parse(localStorage.getItem('admin_books') || '[]');
             stored.unshift({
               ...form,
-              id: String(createdBook.id),
+              image: imageForLocal,
+              imageUrl: imageForLocal,
+              id: bookId,
               publishedYear: form.publishedYear || yearDigits,
+              price_electronic: priceElectronicNum,
+              price_paper: pricePaperNum,
+              priceElectronic: priceElectronicNum ? `${priceElectronicNum.toLocaleString('uz-UZ')} so'm` : '',
+              pricePaper: pricePaperNum ? `${pricePaperNum.toLocaleString('uz-UZ')} so'm` : '',
             });
             localStorage.setItem('admin_books', JSON.stringify(stored));
           } catch {}
@@ -234,10 +267,21 @@ export default function AddBookPage() {
 
     const salePriceNum = Number((form.salePrice || '').replace(/\D/g, '')) || 0;
     let discountExpiresAt: string | null = null;
-    if (form.discountDays && Number(form.discountDays) > 0) {
+    if (salePriceNum > 0) {
+      const days = form.discountDays && Number(form.discountDays) > 0 ? Number(form.discountDays) : 7;
       const exp = new Date();
-      exp.setDate(exp.getDate() + Number(form.discountDays));
+      exp.setDate(exp.getDate() + days);
       discountExpiresAt = exp.toISOString();
+    }
+    const localId = Date.now().toString();
+    if (imageForLocal) {
+      saveCoverOverride(localId, imageForLocal);
+    }
+    if (salePriceNum > 0) {
+      saveDiscountOverride(localId, salePriceNum, discountExpiresAt);
+    }
+    if (priceElectronicNum != null || pricePaperNum != null) {
+      savePricingOverride(localId, priceElectronicNum, pricePaperNum);
     }
     const stored: any[] = JSON.parse(localStorage.getItem('admin_books') || '[]');
     const updatedStored = form.isWeeklyTop
@@ -245,17 +289,22 @@ export default function AddBookPage() {
       : stored;
     updatedStored.unshift({
       ...form,
-      id: Date.now().toString(),
+      id: localId,
+      image: imageForLocal,
+      imageUrl: imageForLocal,
       category: categoryName,
       price: form.price ? `${Number(form.price.replace(/\D/g, '')).toLocaleString('uz-UZ')} so'm` : "0 so'm",
       salePrice: salePriceNum > 0 ? `${salePriceNum.toLocaleString('uz-UZ')} so'm` : '',
       sale_price: salePriceNum > 0 ? salePriceNum : null,
+      price_electronic: priceElectronicNum,
+      price_paper: pricePaperNum,
+      priceElectronic: priceElectronicNum ? `${priceElectronicNum.toLocaleString('uz-UZ')} so'm` : '',
+      pricePaper: pricePaperNum ? `${pricePaperNum.toLocaleString('uz-UZ')} so'm` : '',
       discountExpiresAt,
       discount_expires_at: discountExpiresAt,
       rating: parseFloat(form.rating) || 5.0,
       pages: Number(form.pages) || 0,
       publishedYear: form.publishedYear || String(new Date().getFullYear()),
-      image: imageForLocal,
       is_weekly_top: form.isWeeklyTop,
       isWeeklyTop: form.isWeeklyTop,
     });
@@ -376,6 +425,72 @@ export default function AddBookPage() {
               <div>
                 <label style={labelStyle}>Til</label>
                 <input style={inputStyle} placeholder="O'zbek tili" value={form.language} onChange={e => set('language', e.target.value)} />
+              </div>
+            </div>
+          </div>
+
+          {/* Formatlar va Narxlar bo'limi */}
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(79, 142, 247, 0.05), rgba(155, 109, 255, 0.05))',
+            border: '1.5px solid rgba(79, 142, 247, 0.25)',
+            borderRadius: '16px', padding: '1.5rem', backdropFilter: 'blur(8px)',
+            transition: 'all 0.3s'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '1.2rem' }}>💰</span>
+                <h3 style={{ fontWeight: 700, fontSize: '1rem', margin: 0 }}>Kitob formatlari va narxlari</h3>
+                <span style={{
+                  fontSize: '0.78rem', fontWeight: 600, padding: '3px 10px',
+                  background: 'rgba(79, 142, 247, 0.12)', color: 'var(--accent-blue)',
+                  borderRadius: '20px'
+                }}>Elektron &amp; Qog&apos;oz</span>
+              </div>
+              {form.price && (!form.priceElectronic || !form.pricePaper) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const p = Number(form.price.replace(/\D/g, '')) || 50000;
+                    setForm(prev => ({
+                      ...prev,
+                      priceElectronic: prev.priceElectronic || String(Math.round(p * 0.5)),
+                      pricePaper: prev.pricePaper || String(p)
+                    }));
+                  }}
+                  style={{
+                    background: 'rgba(79, 142, 247, 0.15)', border: '1px solid rgba(79, 142, 247, 0.35)',
+                    color: 'var(--accent-blue)', fontSize: '0.75rem', fontWeight: 600,
+                    padding: '4px 10px', borderRadius: '8px', cursor: 'pointer'
+                  }}
+                >
+                  ⚡ Avto hisoblash
+                </button>
+              )}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+              <div>
+                <label style={labelStyle}>📱 Elektron format narxi (so&apos;m)</label>
+                <input
+                  style={inputStyle}
+                  placeholder="Masalan: 25000"
+                  value={form.priceElectronic}
+                  onChange={e => set('priceElectronic', e.target.value)}
+                />
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '5px' }}>
+                  Saytda to&apos;liq onlayn o&apos;qish va audio tinglash uchun
+                </p>
+              </div>
+              <div>
+                <label style={labelStyle}>📖 Qog&apos;oz format narxi (so&apos;m)</label>
+                <input
+                  style={inputStyle}
+                  placeholder="Masalan: 65000"
+                  value={form.pricePaper}
+                  onChange={e => set('pricePaper', e.target.value)}
+                />
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '5px' }}>
+                  Bosma kitob nusxasi (yetkazib berish bilan)
+                </p>
               </div>
             </div>
           </div>

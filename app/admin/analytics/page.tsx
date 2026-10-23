@@ -103,7 +103,7 @@ export default function AnalyticsPage() {
   const maxCat = stats?.categories.reduce((m, c) => Math.max(m, c.count), 1) || 1;
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1100px', margin: '0 auto' }}>
+    <div className="admin-analytics-wrap" style={{ maxWidth: '1100px', margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h1 style={{ fontSize: '1.8rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -213,6 +213,12 @@ export default function AnalyticsPage() {
           </div>
         </>
       )}
+      <style>{`
+        .admin-analytics-wrap { padding: 1.5rem; }
+        @media (max-width: 768px) {
+          .admin-analytics-wrap { padding: 0.25rem 0 !important; }
+        }
+      `}</style>
     </div>
   );
 }

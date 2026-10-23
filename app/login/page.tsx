@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { BookOpen, Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, AlertCircle, User } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { getApiBaseUrl } from '../lib/api';
+import { saveUserSession } from '../lib/session';
+import { formatUzbekDate, getTodayUzbekDate } from '../lib/date';
 import styles from './login.module.css';
 
 function LoginForm() {
@@ -48,15 +50,15 @@ function LoginForm() {
 
       const data = await res.json();
       
-      localStorage.setItem('name', data.name || data.username);
-      localStorage.setItem('username', data.username);
-      localStorage.setItem('email', data.email || email);
-      if (!localStorage.getItem('join_date')) {
-        localStorage.setItem('join_date', new Date().toLocaleDateString('uz-UZ', {
-          year: 'numeric', month: 'long', day: 'numeric'
-        }));
-      }
-      window.dispatchEvent(new Event('auth-changed'));
+      const rawJoin = localStorage.getItem('join_date');
+      const joinDate = rawJoin ? formatUzbekDate(rawJoin) : getTodayUzbekDate();
+
+      saveUserSession({
+        name: data.name || data.username,
+        username: data.username,
+        email: data.email || email,
+        join_date: joinDate,
+      });
       
       // Kirgandan so'ng to'xtagan kitobiga yoki ko'zlangan sahifaga yo'naltirish
       router.push(redirectUrl);

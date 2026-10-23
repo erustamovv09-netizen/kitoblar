@@ -121,3 +121,19 @@
     text-align: center;
   }
 }
+
+@media (max-width: 480px) {
+  .footer {
+    padding: 2.5rem 0 1.5rem;
+    margin-top: 2.5rem;
+  }
+  .container {
+    padding: 0 1rem;
+    gap: 1.5rem;
+  }
+  .bottom {
+    padding: 1.25rem 1rem 0;
+    margin-top: 2rem;
+  }
+}
+

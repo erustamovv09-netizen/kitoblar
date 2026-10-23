@@ -212,6 +212,13 @@ export default function TermsPage() {
           text-decoration: none;
         }
         .back-link:hover { opacity: 0.75; }
+        @media (max-width: 640px) {
+          .terms-hero { padding: 3.5rem 1rem 2.5rem; }
+          .terms-body { padding: 2rem 1rem; }
+          .terms-intro { padding: 1rem 1.25rem; font-size: 0.95rem; }
+          .terms-section { padding: 1.25rem 1.25rem; }
+          .terms-contact-box { padding: 1.25rem 1.25rem; flex-direction: column; gap: 0.75rem; }
+        }
       `}</style>
     </main>
   );

@@ -1,6 +1,6 @@
 "use client";
 import Image from 'next/image';
-import { Star, Heart, Headphones } from 'lucide-react';
+import { Star, Heart, Headphones, Flame, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
@@ -15,10 +15,79 @@ interface BookCardProps {
   image: string;
   category: string;
   hasAudio?: boolean;
+  sale_price?: number | null;
+  salePrice?: string;
+  discount_expires_at?: string | null;
+  discountExpiresAt?: string | null;
 }
 
-export default function BookCard({ id, title, author, price, rating, image, category, hasAudio }: BookCardProps) {
+const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop';
+
+function CardCountdown({ expiresAt }: { expiresAt: string }) {
+  const [mounted, setMounted] = useState(false);
+  const calc = () => {
+    const diff = new Date(expiresAt).getTime() - Date.now();
+    if (diff <= 0) return null;
+    const d = Math.floor(diff / 86400000);
+    const h = Math.floor((diff % 86400000) / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+    return { d, h, m, s };
+  };
+
+  const [left, setLeft] = useState<{ d: number; h: number; m: number; s: number } | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+    setLeft(calc());
+    const t = setInterval(() => {
+      setLeft(calc());
+    }, 1000);
+    return () => clearInterval(t);
+  }, [expiresAt]);
+
+  if (!mounted || !left) return null;
+
+  return (
+    <div className={styles.discountTimer} title="Chegirma tugashiga qolgan vaqt">
+      <Clock size={11} className={styles.timerIcon} />
+      <span>
+        {left.d > 0 ? `${left.d}k ` : ''}
+        {String(left.h).padStart(2, '0')}:{String(left.m).padStart(2, '0')}:{String(left.s).padStart(2, '0')}
+      </span>
+    </div>
+  );
+}
+
+export default function BookCard({
+  id,
+  title,
+  author,
+  price,
+  rating,
+  image,
+  category,
+  hasAudio,
+  sale_price,
+  salePrice,
+  discount_expires_at,
+  discountExpiresAt,
+}: BookCardProps) {
   const [isFav, setIsFav] = useState(false);
+  const [imgSrc, setImgSrc] = useState(image || FALLBACK_IMAGE);
+
+  const numericPrice = Number(String(price || '').replace(/[^\d]/g, '')) || 0;
+  const saleNum = Number(String(sale_price || salePrice || '').replace(/[^\d]/g, '')) || 0;
+  
+  const expStr = discount_expires_at || discountExpiresAt;
+  const isExpired = expStr ? new Date(expStr).getTime() < Date.now() : false;
+  
+  const hasDiscount = saleNum > 0 && numericPrice > 0 && saleNum < numericPrice && !isExpired;
+  const discountPercent = hasDiscount ? Math.round((1 - saleNum / numericPrice) * 100) : 0;
+
+  useEffect(() => {
+    setImgSrc(image || FALLBACK_IMAGE);
+  }, [image]);
 
   useEffect(() => {
     try {
@@ -73,13 +142,20 @@ export default function BookCard({ id, title, author, price, rating, image, cate
             <Heart size={18} fill={isFav ? 'currentColor' : 'none'} />
           </button>
           <Image
-            src={image}
+            src={imgSrc}
             alt={title}
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             unoptimized
             className={styles.image}
+            onError={() => setImgSrc(FALLBACK_IMAGE)}
           />
+          {hasDiscount && (
+            <div className={styles.discountBadge}>
+              <Flame size={12} fill="#fff" />
+              <span>-{discountPercent}%</span>
+            </div>
+          )}
           <div className={styles.badge}>{category}</div>
           {hasAudio && (
             <div className={styles.audioBadge} title="Audio format mavjud">
@@ -90,12 +166,22 @@ export default function BookCard({ id, title, author, price, rating, image, cate
         <div className={styles.content}>
           <h3 className={styles.title}>{title}</h3>
           <p className={styles.author}>{author}</p>
+          {hasDiscount && (
+            <CardCountdown expiresAt={expStr || new Date(Date.now() + 7 * 86400000).toISOString()} />
+          )}
           <div className={styles.footer}>
             <div className={styles.rating}>
               <Star className={styles.starIcon} size={16} fill="currentColor" />
               <span>{rating}</span>
             </div>
-            <div className={styles.price}>{price}</div>
+            {hasDiscount ? (
+              <div className={styles.priceWrapper}>
+                <span className={styles.oldPrice}>{price}</span>
+                <span className={styles.salePrice}>{saleNum.toLocaleString('uz-UZ')} so&apos;m</span>
+              </div>
+            ) : (
+              <div className={styles.price}>{price}</div>
+            )}
           </div>
         </div>
       </motion.div>

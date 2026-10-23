@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { BookOpen, LogOut, LayoutDashboard, Library, PlusCircle, BarChart2, Users, ChevronRight } from 'lucide-react';
+import { BookOpen, LogOut, LayoutDashboard, Library, PlusCircle, BarChart2, Users, ChevronRight, Receipt } from 'lucide-react';
 
 const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'elshod123';
 
@@ -99,6 +99,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
           {[
             { href: '/admin', icon: <LayoutDashboard size={18} />, label: 'Dashboard' },
+            { href: '/admin/orders', icon: <Receipt size={18} />, label: "To'lovlar va Buyurtmalar" },
             { href: '/admin/books', icon: <Library size={18} />, label: 'Kitoblar' },
             { href: '/admin/books/add', icon: <PlusCircle size={18} />, label: "Kitob qo'shish" },
             { href: '/admin/analytics', icon: <BarChart2 size={18} />, label: 'Analitika' },
@@ -175,7 +176,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               borderRadius: '12px', padding: '0.4rem', display: 'flex', flexDirection: 'column', gap: '4px',
               boxShadow: '0 10px 25px rgba(0,0,0,0.2)', minWidth: '130px'
             }}>
-              <Link href="/admin" onClick={() => setShowMobileDashMenu(false)} style={{
+              <Link href="/admin/orders" onClick={() => setShowMobileDashMenu(false)} style={{
+                display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px',
+                color: 'var(--text-primary)', textDecoration: 'none', fontSize: '0.75rem', fontWeight: 600,
+                borderRadius: '8px', background: 'var(--search-bg)'
+              }}>
+                <Receipt size={15} /> To&apos;lovlar
+              </Link>
+              <Link href="/admin/analytics" onClick={() => setShowMobileDashMenu(false)} style={{
                 display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px',
                 color: 'var(--text-primary)', textDecoration: 'none', fontSize: '0.75rem', fontWeight: 600,
                 borderRadius: '8px', background: 'var(--search-bg)'

@@ -13,10 +13,20 @@ import {
   Maximize2,
   Minimize2,
   Menu,
-  X
+  X,
+  Lock,
+  Sparkles,
+  ShoppingBag,
+  Truck,
+  Smartphone,
+  ShieldCheck,
+  Clock
 } from 'lucide-react';
 import { api, Book } from '../../../lib/api';
 import { parseBookIntoChapters } from '@/app/lib/chapters';
+import { applyScript as translitApplyScript } from '@/app/lib/translit';
+import { checkBookAccess } from '@/app/lib/purchases';
+import PurchaseModal from '@/components/PurchaseModal';
 import styles from './page.module.css';
 
 // Mock contents for the books in the DB to make the reader feel real
@@ -88,9 +98,44 @@ export default function BookReaderPage({ params }: { params: Promise<{ id: strin
   const [showSettings, setShowSettings] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
 
+  // Purchase & Paywall State
+  const [isPurchased, setIsPurchased] = useState(false);
+  const [isPending, setIsPending] = useState(false);
+  const [pendingReceipt, setPendingReceipt] = useState('');
+  const [purchaseModalOpen, setPurchaseModalOpen] = useState(false);
+  const [modalFormat, setModalFormat] = useState<'electronic' | 'paper'>('electronic');
+
   // Content Navigation State
   const [currentChapter, setCurrentChapter] = useState(0);
   const [loading, setLoading] = useState(true);
+
+  // Check purchase status from localStorage & real-time server check
+  useEffect(() => {
+    let mounted = true;
+    async function verifyAccess() {
+      try {
+        const res = await checkBookAccess(bookId);
+        if (!mounted) return;
+        setIsPurchased(res.isPurchased);
+        setIsPending(res.isPending);
+        if (res.receiptNumber) setPendingReceipt(res.receiptNumber);
+      } catch {
+        if (!mounted) return;
+        setIsPurchased(false);
+        setIsPending(false);
+      }
+    }
+    verifyAccess();
+    window.addEventListener('book-purchased', verifyAccess);
+    window.addEventListener('order-submitted', verifyAccess);
+    window.addEventListener('storage', verifyAccess);
+    return () => {
+      mounted = false;
+      window.removeEventListener('book-purchased', verifyAccess);
+      window.removeEventListener('order-submitted', verifyAccess);
+      window.removeEventListener('storage', verifyAccess);
+    };
+  }, [bookId]);
   
   // Auth Check - router.replace orqali brauzer tarixida halqa (loop) hosil bo'lishining oldi olinadi
   useEffect(() => {
@@ -100,41 +145,9 @@ export default function BookReaderPage({ params }: { params: Promise<{ id: strin
     }
   }, [router, bookId]);
 
-  // O'zbek lotin → kiril transliteratsiyasi
-  const toСyrillic = (text: string): string => {
-    const rules: [RegExp, string][] = [
-      // Digraphs (avval)
-      [/SH/g, 'Ш'], [/Sh/g, 'Ш'], [/sh/g, 'ш'],
-      [/CH/g, 'Ч'], [/Ch/g, 'Ч'], [/ch/g, 'ч'],
-      [/O'|O`/g, 'Ў'], [/o'|o`/g, 'ў'],
-      [/G'|G`/g, 'Ғ'], [/g'|g`/g, 'ғ'],
-      [/YO/g, 'Ё'], [/Yo/g, 'Ё'], [/yo/g, 'ё'],
-      [/YA/g, 'Я'], [/Ya/g, 'Я'], [/ya/g, 'я'],
-      [/YU/g, 'Ю'], [/Yu/g, 'Ю'], [/yu/g, 'ю'],
-      [/YE/g, 'Е'], [/Ye/g, 'Е'], [/ye/g, 'е'],
-      [/TS/g, 'Ц'], [/Ts/g, 'Ц'], [/ts/g, 'ц'],
-      // Single chars
-      [/A/g,'А'],[/a/g,'а'],[/B/g,'Б'],[/b/g,'б'],
-      [/D/g,'Д'],[/d/g,'д'],[/E/g,'Э'],[/e/g,'э'],
-      [/F/g,'Ф'],[/f/g,'ф'],[/G/g,'Г'],[/g/g,'г'],
-      [/H/g,'Ҳ'],[/h/g,'ҳ'],[/I/g,'И'],[/i/g,'и'],
-      [/J/g,'Ж'],[/j/g,'ж'],[/K/g,'К'],[/k/g,'к'],
-      [/L/g,'Л'],[/l/g,'л'],[/M/g,'М'],[/m/g,'м'],
-      [/N/g,'Н'],[/n/g,'н'],[/O/g,'О'],[/o/g,'о'],
-      [/P/g,'П'],[/p/g,'п'],[/Q/g,'Қ'],[/q/g,'қ'],
-      [/R/g,'Р'],[/r/g,'р'],[/S/g,'С'],[/s/g,'с'],
-      [/T/g,'Т'],[/t/g,'т'],[/U/g,'У'],[/u/g,'у'],
-      [/V/g,'В'],[/v/g,'в'],[/X/g,'Х'],[/x/g,'х'],
-      [/Y/g,'Й'],[/y/g,'й'],[/Z/g,'З'],[/z/g,'з'],
-      [/'/g,'ъ'],[/`/g,'ъ'],
-    ];
-    let result = text;
-    for (const [from, to] of rules) result = result.replace(from, to);
-    return result;
-  };
-
-  const applyScript = (text: string) =>
-    script === 'cyrillic' ? toСyrillic(text) : text;
+  // O'zbek ikki tomonlama transliteratsiyasi (Lotin <-> Kiril)
+  // Matn kirilcha kiritilgan bo'lsa ham lotinchaga, lotincha kiritilgan bo'lsa ham kirilchaga o'giradi
+  const applyScript = (text: string) => translitApplyScript(text, script);
 
   // Load book from API
   useEffect(() => {
@@ -182,7 +195,20 @@ export default function BookReaderPage({ params }: { params: Promise<{ id: strin
       if (progress) {
         // Find chapter index matching progress
         const idx = chapters.findIndex(c => c.title === progress.chapter);
-        if (idx !== -1) setCurrentChapter(idx);
+        if (idx !== -1) {
+          const raw = localStorage.getItem('purchased_books');
+          let bought = false;
+          try {
+            const list = raw ? JSON.parse(raw) : [];
+            bought = Array.isArray(list) && list.some((p: any) => String(p.id) === String(bookId));
+          } catch {}
+
+          if (bought || idx === 0) {
+            setCurrentChapter(idx);
+          } else {
+            setCurrentChapter(0);
+          }
+        }
       }
       setLoading(false);
     }
@@ -217,6 +243,11 @@ export default function BookReaderPage({ params }: { params: Promise<{ id: strin
   }, [loading, bookId]);
 
   const handleNextChapter = () => {
+    if (!isPurchased && currentChapter >= 0) {
+      setModalFormat('electronic');
+      setPurchaseModalOpen(true);
+      return;
+    }
     if (currentChapter < totalChapters - 1) {
       setCurrentChapter(prev => prev + 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -228,6 +259,17 @@ export default function BookReaderPage({ params }: { params: Promise<{ id: strin
       setCurrentChapter(prev => prev - 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
+  };
+
+  const handleSelectChapter = (idx: number) => {
+    if (!isPurchased && idx > 0) {
+      setModalFormat('electronic');
+      setPurchaseModalOpen(true);
+      return;
+    }
+    setCurrentChapter(idx);
+    setSidebarOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const toggleFullscreen = () => {
@@ -281,7 +323,23 @@ export default function BookReaderPage({ params }: { params: Promise<{ id: strin
             <span>Chiqish</span>
           </Link>
           <div className={styles.divider}>|</div>
-          <span className={styles.bookTitle}>{book?.title}</span>
+          <span className={styles.bookTitle}>{applyScript(book?.title || '')}</span>
+          {!isPurchased && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '0.5rem' }}>
+              <span className={styles.previewBadge}>
+                <Sparkles size={12} /> Tanishuv (1-bob)
+              </span>
+              <button
+                onClick={() => {
+                  setModalFormat('electronic');
+                  setPurchaseModalOpen(true);
+                }}
+                className={styles.headerBuyBtn}
+              >
+                <ShoppingBag size={14} /> Xarid qilish
+              </button>
+            </div>
+          )}
         </div>
 
         <div className={styles.headerRight}>
@@ -318,20 +376,28 @@ export default function BookReaderPage({ params }: { params: Promise<{ id: strin
               <button className={styles.closeBtn} onClick={() => setSidebarOpen(false)}>×</button>
             </div>
             <div className={styles.sidebarList}>
-              {chapters.map((ch, idx) => (
-                <button
-                  key={idx}
-                  className={`${styles.sidebarItem} ${currentChapter === idx ? styles.sidebarItemActive : ''}`}
-                  onClick={() => {
-                    setCurrentChapter(idx);
-                    setSidebarOpen(false);
-                  }}
-                >
-                  <span className={styles.sidebarIdx}>{idx + 1}</span>
-                  <span className={styles.sidebarChTitle}>{ch.title}</span>
-                  {currentChapter === idx && <Check size={14} className={styles.activeCheck} />}
-                </button>
-              ))}
+              {chapters.map((ch, idx) => {
+                const isLocked = !isPurchased && idx > 0;
+                return (
+                  <button
+                    key={idx}
+                    className={`${styles.sidebarItem} ${currentChapter === idx ? styles.sidebarItemActive : ''}`}
+                    onClick={() => handleSelectChapter(idx)}
+                  >
+                    <span className={styles.sidebarIdx}>{idx + 1}</span>
+                    <span className={styles.sidebarChTitle}>{applyScript(ch.title)}</span>
+                    {isLocked ? (
+                      <span className={styles.sidebarLockedTag}>
+                        <Lock size={11} /> Qulflangan
+                      </span>
+                    ) : idx === 0 && !isPurchased ? (
+                      <span className={styles.sidebarFreeTag}>Bepul</span>
+                    ) : currentChapter === idx ? (
+                      <Check size={14} className={styles.activeCheck} />
+                    ) : null}
+                  </button>
+                );
+              })}
             </div>
           </aside>
         </div>
@@ -446,67 +512,270 @@ export default function BookReaderPage({ params }: { params: Promise<{ id: strin
 
       {/* Main Text Content Area */}
       <main className={styles.mainContainer}>
-        <article
-          className={`${styles.readerBody} ${styles[`lh_${lineHeight}`]}`}
-          style={{ fontSize: `${fontSize}px` }}
-        >
-          <span className={styles.chapterTag}>
-            Bob {currentChapter + 1} / {totalChapters}
-          </span>
-          <h2 className={styles.chapterTitle}>{applyScript(chapters[currentChapter].title)}</h2>
+        {!isPurchased && currentChapter > 0 ? (
+          <div className={styles.lockedChapterView}>
+            <div className={styles.lockedIconCircle}>
+              <Lock size={36} />
+            </div>
+            <h2 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '0.75rem' }}>
+              Ushbu bob qulflangan
+            </h2>
+            <p style={{ opacity: 0.75, maxWidth: '520px', lineHeight: 1.6, marginBottom: '2rem' }}>
+              {book?.title ? `"${applyScript(book.title)}"` : 'Kitob'}ning davomini o‘qish uchun to‘liq elektron versiyasini xarid qiling yoki qog‘oz nusxasiga buyurtma bering.
+            </p>
 
-          {applyScript(chapters[currentChapter].content).split('\n\n').map((para, i) => (
-            <p key={i} className={styles.paragraph}>{para.split('\n').map((line, j) => (
-              <span key={j}>{line}{j < para.split('\n').length - 1 && <br />}</span>
-            ))}</p>
-          ))}
+            <div className={styles.paywallOptionsGrid} style={{ maxWidth: '640px', width: '100%' }}>
+              {/* Elektron */}
+              <div className={`${styles.formatCard} ${styles.formatCardFeatured}`}>
+                <div>
+                  <div className={styles.formatCardHeader}>
+                    <Smartphone size={20} color="#8b5cf6" />
+                    <span>Elektron kitob {book?.hasAudio ? '+ Audio' : ''}</span>
+                    <span className={styles.formatBadge}>Ommabop</span>
+                  </div>
+                  <ul className={styles.formatFeatures}>
+                    <li>✓ Hoziroq barcha {totalChapters} bob to‘liq ochiladi</li>
+                    {book?.hasAudio && <li style={{ color: '#38bdf8', fontWeight: 600 }}>✓ Audio kitobni to‘liq eshitish imkoniyati</li>}
+                    <li>✓ Istalgan qurilmadan qulay mutolaa</li>
+                  </ul>
+                </div>
+                <div>
+                  <div className={styles.formatPriceRow}>
+                    <span className={styles.formatPriceLabel}>Elektron narxi:</span>
+                    <span className={styles.formatPriceValue}>
+                      {book?.priceElectronic || (book as any)?.price_electronic || book?.price || "29,000 so'm"}
+                    </span>
+                  </div>
+                  <button
+                    className={styles.formatBtnPrimary}
+                    onClick={() => {
+                      setModalFormat('electronic');
+                      setPurchaseModalOpen(true);
+                    }}
+                  >
+                    <ShoppingBag size={16} /> Elektron xarid qilish
+                  </button>
+                </div>
+              </div>
 
-          {/* Oxirgi bobda "Davomi tez orada" kartasi */}
-          {currentChapter === totalChapters - 1 && (
-            <div style={{
-              marginTop: '3rem',
-              padding: '2rem 1.5rem',
-              borderRadius: '20px',
-              background: 'linear-gradient(135deg, rgba(139,92,246,0.15), rgba(79,142,247,0.12))',
-              border: '1px solid rgba(139,92,246,0.3)',
-              textAlign: 'center',
-              position: 'relative',
-              overflow: 'hidden',
-            }}>
-              {/* Dekor doiralari */}
-              <div style={{ position: 'absolute', top: '-30px', right: '-30px', width: '120px', height: '120px', borderRadius: '50%', background: 'rgba(139,92,246,0.08)', pointerEvents: 'none' }} />
-              <div style={{ position: 'absolute', bottom: '-20px', left: '-20px', width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(79,142,247,0.08)', pointerEvents: 'none' }} />
-
-              <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>✨</div>
-              <h3 style={{
-                fontSize: '1.4rem', fontWeight: 800, marginBottom: '0.5rem',
-                background: 'linear-gradient(135deg, #a78bfa, #60a5fa)',
-                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-              }}>
-                Bu qism shu yerda tugaydi
-              </h3>
-              <p style={{ fontSize: '0.95rem', opacity: 0.75, marginBottom: '0.4rem', lineHeight: 1.6 }}>
-                <strong style={{ color: 'inherit' }}>{book?.title || 'Kitob'}</strong>ning keyingi qismi tayyorlanmoqda.
-              </p>
-              <p style={{ fontSize: '0.85rem', opacity: 0.55, marginBottom: '1.5rem' }}>
-                Davomi tez orada chiqadi — kuzatib boring! 🔔
-              </p>
-              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-                <button
-                  onClick={() => window.history.back()}
-                  style={{
-                    padding: '10px 20px', borderRadius: '10px', fontWeight: 600,
-                    fontSize: '0.85rem', cursor: 'pointer', fontFamily: 'inherit',
-                    background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.4)',
-                    color: '#a78bfa'
-                  }}
-                >
-                  ← Kitob sahifasiga qaytish
-                </button>
+              {/* Qog'oz */}
+              <div className={styles.formatCard}>
+                <div>
+                  <div className={styles.formatCardHeader}>
+                    <Truck size={20} color="#3b82f6" />
+                    <span>Qog‘oz format</span>
+                  </div>
+                  <ul className={styles.formatFeatures}>
+                    <li>✓ Sifatli qog‘oz va chiroyli muqova</li>
+                    <li>✓ O‘zbekiston bo‘ylab eshikkacha yetkazish</li>
+                  </ul>
+                </div>
+                <div>
+                  <div className={styles.formatPriceRow}>
+                    <span className={styles.formatPriceLabel}>Qog‘oz kitob narxi:</span>
+                    <span className={styles.formatPriceValue}>
+                      {book?.pricePaper || (book as any)?.price_paper || "59,000 so'm"}
+                    </span>
+                  </div>
+                  <button
+                    className={styles.formatBtnSecondary}
+                    onClick={() => {
+                      setModalFormat('paper');
+                      setPurchaseModalOpen(true);
+                    }}
+                  >
+                    <Truck size={16} /> Qog‘ozga buyurtma
+                  </button>
+                </div>
               </div>
             </div>
-          )}
-        </article>
+
+            <button
+              onClick={() => setCurrentChapter(0)}
+              style={{
+                marginTop: '1.75rem',
+                background: 'transparent',
+                border: 'none',
+                color: 'inherit',
+                opacity: 0.75,
+                cursor: 'pointer',
+                textDecoration: 'underline',
+                fontSize: '0.9rem',
+                fontFamily: 'inherit'
+              }}
+            >
+              ← 1-bob (bepul tanishuv)ga qaytish
+            </button>
+          </div>
+        ) : (
+          <article
+            className={`${styles.readerBody} ${styles[`lh_${lineHeight}`]}`}
+            style={{ fontSize: `${fontSize}px` }}
+          >
+            <span className={styles.chapterTag}>
+              Bob {currentChapter + 1} / {totalChapters} {currentChapter === 0 && !isPurchased ? "• Tanishuv namunasi" : ""}
+            </span>
+            <h2 className={styles.chapterTitle}>{applyScript(chapters[currentChapter].title)}</h2>
+
+            {applyScript(chapters[currentChapter].content).split('\n\n').map((para, i) => (
+              <p key={i} className={styles.paragraph}>{para.split('\n').map((line, j) => (
+                <span key={j}>{line}{j < para.split('\n').length - 1 && <br />}</span>
+              ))}</p>
+            ))}
+
+            {/* If order is pending admin approval */}
+            {isPending && !isPurchased && (
+              <div style={{
+                background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(217, 119, 6, 0.05))',
+                border: '1.5px solid rgba(245, 158, 11, 0.35)',
+                borderRadius: '16px', padding: '1.25rem 1.5rem', textAlign: 'center', marginBottom: '1.5rem'
+              }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: '#f59e0b', fontWeight: 800, fontSize: '1.05rem', marginBottom: '6px' }}>
+                  <Clock size={20} /> To&apos;lovingiz tekshirilmoqda {pendingReceipt ? `(#${pendingReceipt})` : ''}
+                </div>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0, lineHeight: 1.5 }}>
+                  Siz ushbu kitob uchun to&apos;lov qilgansiz. Admin kartaga pul tushganini tasdiqlashi bilan barcha boblar avtomatik to&apos;liq ochiladi. Odatda bu 1-5 daqiqa vaqt oladi.
+                </p>
+              </div>
+            )}
+
+            {/* If unpurchased and on Chapter 1 (preview chapter): Paywall Card */}
+            {!isPurchased && currentChapter === 0 && (
+              <div className={styles.paywallCard}>
+                <div style={{ position: 'absolute', top: '-40px', right: '-40px', width: '160px', height: '160px', borderRadius: '50%', background: 'rgba(139,92,246,0.12)', filter: 'blur(30px)', pointerEvents: 'none' }} />
+                <div style={{ position: 'absolute', bottom: '-40px', left: '-40px', width: '160px', height: '160px', borderRadius: '50%', background: 'rgba(59,130,246,0.12)', filter: 'blur(30px)', pointerEvents: 'none' }} />
+
+                <div className={styles.paywallTag}>
+                  <Sparkles size={14} /> Eng qiziqarli joyi boshlanmoqda...
+                </div>
+                <h3 className={styles.paywallTitle}>
+                  Davomini o‘qish uchun to‘liq kitobni xarid qiling
+                </h3>
+                <p className={styles.paywallDesc}>
+                  Siz namunaviy 1-bobni mutolaa qildingiz. Syujetning kutilmagan burilishlari, qahramonlarning to‘liq sarguzashtlari va asar yakunini cheklovlarsiz o‘qish uchun qulay formatni tanlang:
+                </p>
+
+                <div className={styles.paywallOptionsGrid}>
+                  {/* Elektron format */}
+                  <div className={`${styles.formatCard} ${styles.formatCardFeatured}`}>
+                    <div>
+                      <div className={styles.formatCardHeader}>
+                        <Smartphone size={20} color="#8b5cf6" />
+                        <span>Elektron kitob {book?.hasAudio ? '+ Audio' : ''}</span>
+                        <span className={styles.formatBadge}>Ommabop</span>
+                      </div>
+                      <ul className={styles.formatFeatures}>
+                        <li>✓ Hoziroq barcha {totalChapters} bob to‘liq ochiladi</li>
+                        {book?.hasAudio && <li style={{ color: '#38bdf8', fontWeight: 600 }}>✓ Audio kitobni to‘liq eshitish imkoniyati</li>}
+                        <li>✓ Istalgan qurilmadan qulay mutolaa</li>
+                        <li>✓ Tungi rejim va shrift sozlamalari</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <div className={styles.formatPriceRow}>
+                        <span className={styles.formatPriceLabel}>Elektron narxi:</span>
+                        <span className={styles.formatPriceValue}>
+                          {book?.priceElectronic || (book as any)?.price_electronic || book?.price || "29,000 so'm"}
+                        </span>
+                      </div>
+                      <button
+                        className={styles.formatBtnPrimary}
+                        onClick={() => {
+                          setModalFormat('electronic');
+                          setPurchaseModalOpen(true);
+                        }}
+                      >
+                        <ShoppingBag size={16} /> Elektron xarid qilish
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Qog'oz format */}
+                  <div className={styles.formatCard}>
+                    <div>
+                      <div className={styles.formatCardHeader}>
+                        <Truck size={20} color="#3b82f6" />
+                        <span>Qog‘oz format</span>
+                      </div>
+                      <ul className={styles.formatFeatures}>
+                        <li>✓ Sifatli qog‘oz va chiroyli muqova</li>
+                        <li>✓ O‘zbekiston bo‘ylab tezkor yetkazib berish</li>
+                        <li>✓ Shaxsiy kutubxonangiz uchun haqiqiy kitob</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <div className={styles.formatPriceRow}>
+                        <span className={styles.formatPriceLabel}>Qog‘oz kitob narxi:</span>
+                        <span className={styles.formatPriceValue}>
+                          {book?.pricePaper || (book as any)?.price_paper || "59,000 so'm"}
+                        </span>
+                      </div>
+                      <button
+                        className={styles.formatBtnSecondary}
+                        onClick={() => {
+                          setModalFormat('paper');
+                          setPurchaseModalOpen(true);
+                        }}
+                      >
+                        <Truck size={16} /> Qog‘ozga buyurtma
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className={styles.paywallFooterNote}>
+                  <ShieldCheck size={16} color="#10b981" />
+                  <span>Payme va Click orqali 100% xavfsiz to‘lov. Xarid darhol faollashadi.</span>
+                </div>
+              </div>
+            )}
+
+            {/* Oxirgi bobda "Davomi tez orada" kartasi (agar sotib olingan bo'lsa) */}
+            {isPurchased && currentChapter === totalChapters - 1 && (
+              <div style={{
+                marginTop: '3rem',
+                padding: '2rem 1.5rem',
+                borderRadius: '20px',
+                background: 'linear-gradient(135deg, rgba(139,92,246,0.15), rgba(79,142,247,0.12))',
+                border: '1px solid rgba(139,92,246,0.3)',
+                textAlign: 'center',
+                position: 'relative',
+                overflow: 'hidden',
+              }}>
+                <div style={{ position: 'absolute', top: '-30px', right: '-30px', width: '120px', height: '120px', borderRadius: '50%', background: 'rgba(139,92,246,0.08)', pointerEvents: 'none' }} />
+                <div style={{ position: 'absolute', bottom: '-20px', left: '-20px', width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(79,142,247,0.08)', pointerEvents: 'none' }} />
+
+                <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>✨</div>
+                <h3 style={{
+                  fontSize: '1.4rem', fontWeight: 800, marginBottom: '0.5rem',
+                  background: 'linear-gradient(135deg, #a78bfa, #60a5fa)',
+                  WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                }}>
+                  Bu qism shu yerda tugaydi
+                </h3>
+                <p style={{ fontSize: '0.95rem', opacity: 0.75, marginBottom: '0.4rem', lineHeight: 1.6 }}>
+                  <strong style={{ color: 'inherit' }}>{applyScript(book?.title || 'Kitob')}</strong>ning keyingi qismi tayyorlanmoqda.
+                </p>
+                <p style={{ fontSize: '0.85rem', opacity: 0.55, marginBottom: '1.5rem' }}>
+                  Davomi tez orada chiqadi — kuzatib boring! 🔔
+                </p>
+                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => window.history.back()}
+                    style={{
+                      padding: '10px 20px', borderRadius: '10px', fontWeight: 600,
+                      fontSize: '0.85rem', cursor: 'pointer', fontFamily: 'inherit',
+                      background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.4)',
+                      color: '#a78bfa'
+                    }}
+                  >
+                    ← Kitob sahifasiga qaytish
+                  </button>
+                </div>
+              </div>
+            )}
+          </article>
+        )}
 
         {/* Footer Page / Chapter Navigation */}
         <section className={styles.navigation}>
@@ -526,13 +795,30 @@ export default function BookReaderPage({ params }: { params: Promise<{ id: strin
           <button
             className={styles.navBtn}
             onClick={handleNextChapter}
-            disabled={currentChapter === totalChapters - 1}
+            disabled={isPurchased && currentChapter === totalChapters - 1}
+            style={!isPurchased ? {
+              background: 'linear-gradient(135deg, rgba(139,92,246,0.18), rgba(59,130,246,0.18))',
+              borderColor: 'rgba(139,92,246,0.45)',
+              color: '#a78bfa',
+              fontWeight: 600
+            } : undefined}
           >
-            <span>Keyingi bob</span>
-            <ChevronRight size={20} />
+            <span>{!isPurchased ? "Davomini ochish" : "Keyingi bob"}</span>
+            {!isPurchased ? <Lock size={16} /> : <ChevronRight size={20} />}
           </button>
         </section>
       </main>
+
+      {/* Purchase Modal */}
+      <PurchaseModal
+        isOpen={purchaseModalOpen}
+        onClose={() => setPurchaseModalOpen(false)}
+        book={book as any}
+        initialFormat={modalFormat}
+        onSuccess={() => {
+          setIsPurchased(true);
+        }}
+      />
     </div>
   );
 }

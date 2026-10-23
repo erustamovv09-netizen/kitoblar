@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, BookOpen, Save, CheckCircle2, Link2, ImageIcon, Upload, X, Server, HardDrive } from 'lucide-react';
-import { api, Book, saveDiscountOverride } from '../../../../lib/api';
+import { api, Book, saveDiscountOverride, saveCoverOverride, savePricingOverride } from '../../../../lib/api';
 import { countChaptersInContent } from '@/app/lib/chapters';
 
 const CATEGORIES = ['Badiiy', 'Biznes', 'Ilmiy', 'Tarixiy', 'Detektiv', 'Bolalar adabiyoti', 'Jahon adabiyoti', 'Shaxsiy rivojlanish', 'Moliya', 'Falsafa', 'Psixologiya'];
@@ -44,7 +44,8 @@ export default function EditBookPage() {
     title: '', author: '', category: 'Badiiy', price: '', description: '',
     pages: '', language: "O'zbek tili", publishedYear: new Date().getFullYear().toString(),
     hasAudio: false, audioUrl: '', imageUrl: '', rating: '0', isWeeklyTop: false, content: '',
-    salePrice: '', discountDays: ''
+    salePrice: '', discountDays: '',
+    priceElectronic: '', pricePaper: ''
   });
 
   useEffect(() => {
@@ -65,6 +66,8 @@ export default function EditBookPage() {
             discountDaysLeft = String(Math.ceil(diff / 86400000));
           }
         }
+        const peNum = b.price_electronic != null ? Number(b.price_electronic) : (b.priceElectronic ? Number(String(b.priceElectronic).replace(/\D/g, '')) : '');
+        const ppNum = b.price_paper != null ? Number(b.price_paper) : (b.pricePaper ? Number(String(b.pricePaper).replace(/\D/g, '')) : '');
         setForm({
           title: b.title || '',
           author: b.author || '',
@@ -82,6 +85,8 @@ export default function EditBookPage() {
           content: b.content || '',
           salePrice: salePriceNum > 0 ? String(salePriceNum) : '',
           discountDays: discountDaysLeft,
+          priceElectronic: peNum ? String(peNum) : '',
+          pricePaper: ppNum ? String(ppNum) : '',
         });
         setPreviewUrl(b.image || b.imageUrl || '');
       }
@@ -116,7 +121,32 @@ export default function EditBookPage() {
 
   const set = (key: string, val: string | boolean) => setForm(prev => ({ ...prev, [key]: val }));
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const img = new window.Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX = 600;
+          let { width, height } = img;
+          if (width > MAX || height > MAX) {
+            if (width > height) { height = Math.round(height * MAX / width); width = MAX; }
+            else { width = Math.round(width * MAX / height); height = MAX; }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.75));
+        };
+        img.src = ev.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setImageFile(file);
@@ -124,18 +154,25 @@ export default function EditBookPage() {
       setError("Faqat rasm fayllari qabul qilinadi (JPG, PNG, WEBP...)");
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setError("Rasm hajmi 5MB dan kichik bo'lishi kerak.");
+    if (file.size > 15 * 1024 * 1024) {
+      setError("Rasm hajmi 15MB dan kichik bo'lishi kerak.");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const dataUrl = ev.target?.result as string;
-      setPreviewUrl(dataUrl);
-      set('imageUrl', dataUrl);
+    try {
+      const compressedDataUrl = await compressImage(file);
+      setPreviewUrl(compressedDataUrl);
+      set('imageUrl', compressedDataUrl);
       setError('');
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const dataUrl = ev.target?.result as string;
+        setPreviewUrl(dataUrl);
+        set('imageUrl', dataUrl);
+        setError('');
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const clearImage = () => {
@@ -162,10 +199,13 @@ export default function EditBookPage() {
 
     const numericPrice = Number(form.price.replace(/\D/g, '')) || 0;
     const salePriceNum = Number((form.salePrice || '').replace(/\D/g, '')) || 0;
+    const priceElectronicNum = Number((form.priceElectronic || '').replace(/\D/g, '')) || null;
+    const pricePaperNum = Number((form.pricePaper || '').replace(/\D/g, '')) || null;
     let discountExpiresAt: string | null = null;
-    if (form.discountDays && Number(form.discountDays) > 0) {
+    if (salePriceNum > 0) {
+      const days = form.discountDays && Number(form.discountDays) > 0 ? Number(form.discountDays) : 7;
       const exp = new Date();
-      exp.setDate(exp.getDate() + Number(form.discountDays));
+      exp.setDate(exp.getDate() + days);
       discountExpiresAt = exp.toISOString();
     }
     const payload = {
@@ -191,16 +231,25 @@ export default function EditBookPage() {
       salePrice: salePriceNum > 0 ? `${salePriceNum.toLocaleString('uz-UZ')} so'm` : '',
       discount_expires_at: discountExpiresAt,
       discountExpiresAt,
+      price_electronic: priceElectronicNum,
+      price_paper: pricePaperNum,
+      priceElectronic: priceElectronicNum ? `${priceElectronicNum.toLocaleString('uz-UZ')} so'm` : '',
+      pricePaper: pricePaperNum ? `${pricePaperNum.toLocaleString('uz-UZ')} so'm` : '',
     };
 
     const res = await api.updateBook(bookId, payload, imageFile);
-    // Chegirma ma'lumotlarini alohida localStorage kalitiga saqlash
-    // (backend bu maydonni qabul qilmasa ham ishlaydi)
+    // Chegirma, muqova va format narxlari override larini alohida localStorage kalitlariga saqlash
     saveDiscountOverride(
       bookId,
       salePriceNum > 0 ? salePriceNum : null,
       discountExpiresAt
     );
+    if (priceElectronicNum != null || pricePaperNum != null) {
+      savePricingOverride(bookId, priceElectronicNum, pricePaperNum);
+    }
+    if (form.imageUrl || previewUrl) {
+      saveCoverOverride(bookId, form.imageUrl || previewUrl);
+    }
     setSavedToBackend(res.fromBackend);
     setSaving(false);
     setSuccess(true);
@@ -317,6 +366,72 @@ export default function EditBookPage() {
               <div>
                 <label style={labelStyle}>Til</label>
                 <input style={inputStyle} placeholder="O'zbek tili" value={form.language} onChange={e => set('language', e.target.value)} />
+              </div>
+            </div>
+          </div>
+
+          {/* Formatlar va Narxlar bo'limi */}
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(79, 142, 247, 0.05), rgba(155, 109, 255, 0.05))',
+            border: '1.5px solid rgba(79, 142, 247, 0.25)',
+            borderRadius: '16px', padding: '1.5rem', backdropFilter: 'blur(8px)',
+            transition: 'all 0.3s'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '1.2rem' }}>💰</span>
+                <h3 style={{ fontWeight: 700, fontSize: '1rem', margin: 0 }}>Kitob formatlari va narxlari</h3>
+                <span style={{
+                  fontSize: '0.78rem', fontWeight: 600, padding: '3px 10px',
+                  background: 'rgba(79, 142, 247, 0.12)', color: 'var(--accent-blue)',
+                  borderRadius: '20px'
+                }}>Elektron &amp; Qog&apos;oz</span>
+              </div>
+              {form.price && (!form.priceElectronic || !form.pricePaper) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const p = Number(form.price.replace(/\D/g, '')) || 50000;
+                    setForm(prev => ({
+                      ...prev,
+                      priceElectronic: prev.priceElectronic || String(Math.round(p * 0.5)),
+                      pricePaper: prev.pricePaper || String(p)
+                    }));
+                  }}
+                  style={{
+                    background: 'rgba(79, 142, 247, 0.15)', border: '1px solid rgba(79, 142, 247, 0.35)',
+                    color: 'var(--accent-blue)', fontSize: '0.75rem', fontWeight: 600,
+                    padding: '4px 10px', borderRadius: '8px', cursor: 'pointer'
+                  }}
+                >
+                  ⚡ Avto hisoblash
+                </button>
+              )}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+              <div>
+                <label style={labelStyle}>📱 Elektron format narxi (so&apos;m)</label>
+                <input
+                  style={inputStyle}
+                  placeholder="Masalan: 25000"
+                  value={form.priceElectronic}
+                  onChange={e => set('priceElectronic', e.target.value)}
+                />
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '5px' }}>
+                  Saytda to&apos;liq onlayn o&apos;qish va audio tinglash uchun
+                </p>
+              </div>
+              <div>
+                <label style={labelStyle}>📖 Qog&apos;oz format narxi (so&apos;m)</label>
+                <input
+                  style={inputStyle}
+                  placeholder="Masalan: 65000"
+                  value={form.pricePaper}
+                  onChange={e => set('pricePaper', e.target.value)}
+                />
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '5px' }}>
+                  Bosma kitob nusxasi (yetkazib berish bilan)
+                </p>
               </div>
             </div>
           </div>

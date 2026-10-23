@@ -20,8 +20,13 @@ export const getApiBaseUrl = (): string => {
 };
 
 export const getBackendBaseUrl = (): string => {
+  // If explicitly set, use it
   if (process.env.NEXT_PUBLIC_BACKEND_URL) {
     return process.env.NEXT_PUBLIC_BACKEND_URL;
+  }
+  // Derive from NEXT_PUBLIC_API_URL (strip trailing /api)
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/?$/, '');
   }
   if (typeof window !== 'undefined' && window.location.hostname) {
     const host = window.location.hostname;
@@ -29,6 +34,8 @@ export const getBackendBaseUrl = (): string => {
     if (isLocal) {
       return `http://${host}:8000`;
     }
+    // On production domain, backend is on render — use env var pattern
+    // Fallback: same origin (reverse proxy setup)
     return window.location.origin;
   }
   return "http://127.0.0.1:8000";
@@ -58,6 +65,11 @@ export interface Book {
   salePrice?: string;
   discount_expires_at?: string | null;
   discountExpiresAt?: string | null;
+  // Format narxlari (Elektron va Qog'oz)
+  price_electronic?: number | null;
+  price_paper?: number | null;
+  priceElectronic?: string;
+  pricePaper?: string;
 }
 
 // Utility to handle fetch requests with a timeout and automatic mock fallback
@@ -123,6 +135,25 @@ export function formatPublishedYear(year: any, title?: string, id?: string): str
   return str;
 }
 
+export function getStaticBookCover(id?: string | number, title?: string): string | null {
+  const t = String(title || '').toLowerCase().trim();
+  const idStr = String(id || '').trim();
+
+  if (idStr === '7' || t.includes('1500') || t.includes('maxbus')) {
+    return '/images/1500-yillik-maxbuslar.jpg';
+  }
+  if (idStr === '4' || idStr === '5' || t.includes('arosat')) {
+    return '/images/arosat.jpg';
+  }
+  if (idStr === '1' || t.includes('binafsha')) {
+    return '/images/binafsha.jpeg';
+  }
+  if (idStr === '3' || t.includes('harom') || t.includes('ko‘z') || t.includes("ko'z") || t.includes('kozlaringni')) {
+    return '/images/kozlaringni-haromdan-saqla.jpg';
+  }
+  return null;
+}
+
 function fixMediaUrl(url?: string): string {
   if (!url) return '';
   const backendBase = getBackendBaseUrl();
@@ -160,7 +191,56 @@ function mapDjangoBookToBook(djangoBook: any): Book {
     djangoBook.audio_file ||
     (isAudio ? 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' : '');
 
-  const rawImage = djangoBook.cover_image || djangoBook.image || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop';
+  const staticCover = getStaticBookCover(djangoBook.id, djangoBook.title);
+  let rawImage = djangoBook.cover_image || djangoBook.image;
+  if (staticCover && (!rawImage || rawImage.includes('onrender.com/media/book_covers/') || rawImage.includes('unsplash.com/photo-1544947950'))) {
+    rawImage = staticCover;
+  }
+  if (!rawImage) {
+    rawImage = staticCover || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop';
+  }
+
+  // Chegirma ma'lumotlarini description ichidagi maxsus HTML izohdan ham olamiz (Render PostgreSQL da abadiy saqlanadi)
+  let salePrice = djangoBook.sale_price != null ? Number(djangoBook.sale_price) : null;
+  let discountExpiresAt = djangoBook.discount_expires_at || djangoBook.discountExpiresAt || null;
+  let cleanDescription = djangoBook.description || '';
+
+  if (typeof cleanDescription === 'string' && cleanDescription.includes('<!--DISCOUNT:')) {
+    const match = cleanDescription.match(/<!--DISCOUNT:(.*?)-->/);
+    if (match) {
+      try {
+        const parsed = JSON.parse(match[1]);
+        if (parsed.sale_price != null) salePrice = Number(parsed.sale_price);
+        if (parsed.discount_expires_at) discountExpiresAt = parsed.discount_expires_at;
+      } catch {}
+    }
+    cleanDescription = cleanDescription.replace(/<!--DISCOUNT:.*?-->/g, '').trim();
+  }
+
+  // Format narxlarini (Elektron va Qog'oz) description ichidagi HTML izohdan yoki bevosita ustunlardan olamiz
+  let priceElectronic: number | null = djangoBook.price_electronic != null ? Number(djangoBook.price_electronic) : null;
+  let pricePaper: number | null = djangoBook.price_paper != null ? Number(djangoBook.price_paper) : null;
+
+  if (typeof cleanDescription === 'string' && cleanDescription.includes('<!--PRICING:')) {
+    const pMatch = cleanDescription.match(/<!--PRICING:(.*?)-->/);
+    if (pMatch) {
+      try {
+        const parsedP = JSON.parse(pMatch[1]);
+        if (parsedP.price_electronic != null) priceElectronic = Number(parsedP.price_electronic);
+        if (parsedP.price_paper != null) pricePaper = Number(parsedP.price_paper);
+      } catch {}
+    }
+    cleanDescription = cleanDescription.replace(/<!--PRICING:.*?-->/g, '').trim();
+  }
+
+  // Standart mantiqiy narxlar (agar admin alohida ko'rsatmagan bo'lsa)
+  const numBase = parseFloat(String(djangoBook.price || '0').replace(/[^\d.-]/g, '')) || 50000;
+  if (priceElectronic == null || isNaN(priceElectronic) || priceElectronic <= 0) {
+    priceElectronic = Math.max(10000, Math.round((numBase * 0.5) / 1000) * 1000);
+  }
+  if (pricePaper == null || isNaN(pricePaper) || pricePaper <= 0) {
+    pricePaper = Math.max(priceElectronic, numBase > 0 ? numBase : 60000);
+  }
 
   return {
     id: String(djangoBook.id),
@@ -170,7 +250,7 @@ function mapDjangoBookToBook(djangoBook: any): Book {
     rating: Number(djangoBook.rating) != null && !isNaN(Number(djangoBook.rating)) ? Number(djangoBook.rating) : 5,
     image: fixMediaUrl(rawImage),
     category: djangoBook.category_name || djangoBook.category || 'Badiiy',
-    description: djangoBook.description || '',
+    description: cleanDescription,
     pages: Number(djangoBook.pages) || 0,
     language: djangoBook.language || "O'zbek tili",
     publishedYear: formatPublishedYear(djangoBook.year || djangoBook.publishedYear, djangoBook.title, djangoBook.id),
@@ -180,10 +260,15 @@ function mapDjangoBookToBook(djangoBook: any): Book {
     is_weekly_top: Boolean(djangoBook.is_weekly_top || djangoBook.isWeeklyTop),
     isWeeklyTop: Boolean(djangoBook.is_weekly_top || djangoBook.isWeeklyTop),
     // Chegirma maydonlari
-    sale_price: djangoBook.sale_price != null ? Number(djangoBook.sale_price) : null,
-    salePrice: djangoBook.salePrice || (djangoBook.sale_price ? String(djangoBook.sale_price) : ''),
-    discount_expires_at: djangoBook.discount_expires_at || null,
-    discountExpiresAt: djangoBook.discount_expires_at || djangoBook.discountExpiresAt || null,
+    sale_price: salePrice,
+    salePrice: salePrice ? `${salePrice.toLocaleString('uz-UZ')} so'm` : '',
+    discount_expires_at: discountExpiresAt,
+    discountExpiresAt: discountExpiresAt,
+    // Format narxlari
+    price_electronic: priceElectronic,
+    price_paper: pricePaper,
+    priceElectronic: formatPrice(priceElectronic),
+    pricePaper: formatPrice(pricePaper),
   } as any;
 }
 
@@ -219,8 +304,37 @@ function getDeletedBookIds(): Set<string> {
 
 
 
+// Helper: kitob muqovasi (rasm) override larini alohida localStorage kalitida saqlash (backend o'chib yonsa ham yo'qolmaydi)
+export function getCoverOverrides(): Record<string, string> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem('cover_overrides');
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+
+export function saveCoverOverride(bookId: string, imageSrc: string) {
+  if (typeof window === 'undefined' || !bookId || !imageSrc) return;
+  try {
+    const current = getCoverOverrides();
+    current[String(bookId)] = imageSrc;
+    localStorage.setItem('cover_overrides', JSON.stringify(current));
+  } catch (e) {
+    console.warn('cover_overrides saqlashda xatolik:', e);
+  }
+}
+
+export function removeCoverOverride(bookId: string) {
+  if (typeof window === 'undefined' || !bookId) return;
+  try {
+    const current = getCoverOverrides();
+    delete current[String(bookId)];
+    localStorage.setItem('cover_overrides', JSON.stringify(current));
+  } catch {}
+}
+
 // Helper: chegirma override larini alohida localStorage kalitida saqlash
-function getDiscountOverrides(): Record<string, { sale_price: number | null; discount_expires_at: string | null }> {
+export function getDiscountOverrides(): Record<string, { sale_price: number | null; discount_expires_at: string | null }> {
   if (typeof window === 'undefined') return {};
   try {
     const raw = localStorage.getItem('discount_overrides');
@@ -241,6 +355,24 @@ export function saveDiscountOverride(bookId: string, salePrice: number | null, d
   } catch {}
 }
 
+// Helper: elektron va qog'oz format narxlari override larini saqlash
+export function getPricingOverrides(): Record<string, { price_electronic: number | null; price_paper: number | null }> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem('pricing_overrides');
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+
+export function savePricingOverride(bookId: string, priceElectronic: number | null, pricePaper: number | null) {
+  if (typeof window === 'undefined' || !bookId) return;
+  try {
+    const overrides = getPricingOverrides();
+    overrides[String(bookId)] = { price_electronic: priceElectronic, price_paper: pricePaper };
+    localStorage.setItem('pricing_overrides', JSON.stringify(overrides));
+  } catch {}
+}
+
 export const api = {
   // ── Books APIs ────────────────────────────────────────────────────────
   async getBooks(): Promise<Book[]> {
@@ -249,15 +381,35 @@ export const api = {
     let raw: any[] = [];
     try {
       const res = await fetch(`${getBase()}/books/`, {
-        signal: AbortSignal.timeout(4000),
+        signal: AbortSignal.timeout(8000),
       });
       if (res.ok) {
         raw = await res.json();
-        fromBackend = true;
+        if (Array.isArray(raw) && raw.length > 0) {
+          fromBackend = true;
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem('cached_backend_books', JSON.stringify(raw));
+            } catch {}
+          }
+        }
       }
     } catch { }
 
-    // ── 2. If backend is offline, use mock booksDB ────────────────
+    // ── 2. If backend is offline / cold-starting, use cached books if available ────
+    if (!fromBackend && typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('cached_backend_books');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            raw = parsed;
+            fromBackend = true;
+          }
+        }
+      } catch {}
+    }
+
     if (!fromBackend) raw = booksDB as any[];
 
     const books = Array.isArray(raw)
@@ -272,65 +424,110 @@ export const api = {
     if (fromBackend) {
       const localEdits = getLocalAdminBooks();
       const backendIds = new Set(filtered.map(b => String(b.id)));
-      // Chegirma override lari (backend da bu maydon bo'lmasa ham)
+      // Chegirma, format narxlari va muqova rasm override lari
       const discountOverrides = getDiscountOverrides();
+      const pricingOverrides = getPricingOverrides();
+      const coverOverrides = getCoverOverrides();
 
-      // Auto-clean stale edits from localStorage for books that exist on backend
-      // NOTE: discount_overrides is intentionally NOT cleaned — it stores discount data
-      // that the backend may not support yet.
+      // Eski admin_books dagi rasmlarni cover_overrides ga ko'chirib saqlab qolamiz
       if (typeof window !== 'undefined') {
         try {
           const stored: any[] = JSON.parse(localStorage.getItem('admin_books') || '[]');
-          const cleaned = stored.filter(b => !backendIds.has(String(b.id)));
-          if (cleaned.length !== stored.length) {
-            localStorage.setItem('admin_books', JSON.stringify(cleaned));
+          let updatedCovers = false;
+          for (const b of stored) {
+            const bImg = b.image || b.imageUrl;
+            if (b?.id && bImg && !coverOverrides[String(b.id)]) {
+              coverOverrides[String(b.id)] = bImg;
+              updatedCovers = true;
+            }
+          }
+          if (updatedCovers) {
+            localStorage.setItem('cover_overrides', JSON.stringify(coverOverrides));
           }
         } catch {}
       }
 
       const localOnlyBooks = Object.values(localEdits)
         .filter((e: any) => !backendIds.has(String(e.id)) && !deleted.has(String(e.id)))
-        .map((e: any) => ({
-          id: String(e.id),
-          title: e.title || '',
-          author: e.author || '',
-          price: formatPrice(e.price),
-          rating: Number(e.rating) || 5,
-          image: fixMediaUrl(e.image || e.imageUrl || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop'),
-          category: e.category || 'Badiiy',
-          description: e.description || '',
-          pages: Number(e.pages) || 0,
-          language: e.language || "O'zbek tili",
-          publishedYear: formatPublishedYear(e.publishedYear || e.year || '2024', e.title, e.id),
-          hasAudio: !!e.hasAudio,
-          audioUrl: fixMediaUrl(e.audioUrl || ''),
-          content: e.content || '',
-          is_weekly_top: Boolean(e.is_weekly_top || e.isWeeklyTop),
-          isWeeklyTop: Boolean(e.is_weekly_top || e.isWeeklyTop),
-          sale_price: e.sale_price != null ? Number(e.sale_price) : null,
-          salePrice: e.salePrice || '',
-          discount_expires_at: e.discount_expires_at || null,
-          discountExpiresAt: e.discount_expires_at || e.discountExpiresAt || null,
-        } as Book));
+        .map((e: any) => {
+          const numBase = parseFloat(String(e.price || '0').replace(/[^\d.-]/g, '')) || 50000;
+          const priceOv = pricingOverrides[String(e.id)];
+          const pe = priceOv?.price_electronic ?? (e.price_electronic != null ? Number(e.price_electronic) : (e.priceElectronic ? Number(String(e.priceElectronic).replace(/\D/g, '')) : Math.max(10000, Math.round((numBase * 0.5) / 1000) * 1000)));
+          const pp = priceOv?.price_paper ?? (e.price_paper != null ? Number(e.price_paper) : (e.pricePaper ? Number(String(e.pricePaper).replace(/\D/g, '')) : Math.max(pe, numBase > 0 ? numBase : 60000)));
+          return {
+            id: String(e.id),
+            title: e.title || '',
+            author: e.author || '',
+            price: formatPrice(e.price),
+            rating: Number(e.rating) || 5,
+            image: fixMediaUrl(coverOverrides[String(e.id)] || e.image || e.imageUrl || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop'),
+            category: e.category || 'Badiiy',
+            description: e.description || '',
+            pages: Number(e.pages) || 0,
+            language: e.language || "O'zbek tili",
+            publishedYear: formatPublishedYear(e.publishedYear || e.year || '2024', e.title, e.id),
+            hasAudio: !!e.hasAudio,
+            audioUrl: fixMediaUrl(e.audioUrl || ''),
+            content: e.content || '',
+            is_weekly_top: Boolean(e.is_weekly_top || e.isWeeklyTop),
+            isWeeklyTop: Boolean(e.is_weekly_top || e.isWeeklyTop),
+            sale_price: e.sale_price != null ? Number(e.sale_price) : null,
+            salePrice: e.salePrice || '',
+            discount_expires_at: e.discount_expires_at || null,
+            discountExpiresAt: e.discount_expires_at || e.discountExpiresAt || null,
+            price_electronic: pe,
+            price_paper: pp,
+            priceElectronic: formatPrice(pe),
+            pricePaper: formatPrice(pp),
+          } as Book;
+        });
 
-      // Apply discount overrides to backend books
-      const filteredWithDiscount = filtered.map(book => {
+      // Apply cover, discount and pricing overrides to backend books
+      const filteredWithOverrides = filtered.map(book => {
         const ov = discountOverrides[String(book.id)];
-        if (!ov) return book;
+        const coverOv = coverOverrides[String(book.id)];
+        const priceOv = pricingOverrides[String(book.id)];
+        const pe = priceOv?.price_electronic ?? book.price_electronic;
+        const pp = priceOv?.price_paper ?? book.price_paper;
         return {
           ...book,
-          sale_price: ov.sale_price,
-          discount_expires_at: ov.discount_expires_at,
-          discountExpiresAt: ov.discount_expires_at,
+          image: coverOv || book.image,
+          sale_price: ov ? ov.sale_price : book.sale_price,
+          discount_expires_at: ov ? ov.discount_expires_at : book.discount_expires_at,
+          discountExpiresAt: ov ? ov.discount_expires_at : book.discountExpiresAt,
+          price_electronic: pe,
+          price_paper: pp,
+          priceElectronic: formatPrice(pe),
+          pricePaper: formatPrice(pp),
         };
       });
 
-      return [...filteredWithDiscount, ...localOnlyBooks];
+      const result = [...filteredWithOverrides, ...localOnlyBooks];
+      if (typeof window !== 'undefined' && result.length > 0) {
+        try {
+          localStorage.setItem('cached_full_books', JSON.stringify(result));
+        } catch {}
+      }
+      return result;
     }
 
     // ── 3b. Backend offline → booksDB + localStorage-only books ──────────────
+    if (typeof window !== 'undefined') {
+      try {
+        const cachedFull = localStorage.getItem('cached_full_books');
+        if (cachedFull) {
+          const parsed = JSON.parse(cachedFull);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed;
+          }
+        }
+      } catch {}
+    }
     const localEdits = getLocalAdminBooks();
     const backendIds = new Set(filtered.map(b => b.id));
+    const coverOverrides = getCoverOverrides();
+    const discountOverrides = getDiscountOverrides();
+
     const localOnlyBooks = Object.values(localEdits)
       .filter((e: any) => !backendIds.has(String(e.id)) && !deleted.has(String(e.id)))
       .map((e: any) => ({
@@ -339,7 +536,7 @@ export const api = {
         author: e.author || '',
         price: formatPrice(e.price),
         rating: Number(e.rating) || 5,
-        image: fixMediaUrl(e.image || e.imageUrl || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop'),
+        image: fixMediaUrl(coverOverrides[String(e.id)] || e.image || e.imageUrl || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop'),
         category: e.category || 'Badiiy',
         description: e.description || '',
         pages: Number(e.pages) || 0,
@@ -356,12 +553,19 @@ export const api = {
         discountExpiresAt: e.discount_expires_at || e.discountExpiresAt || null,
       } as Book));
 
-    if (Object.keys(localEdits).length === 0) return [...filtered, ...localOnlyBooks];
     return [
       ...filtered.map(book => {
         const edit = localEdits[book.id];
-        if (!edit) return book;
-        return { ...book, ...edit, id: book.id, price: formatPrice(edit.price || book.price) };
+        const ov = discountOverrides[String(book.id)];
+        const coverOv = coverOverrides[String(book.id)];
+        const base = edit ? { ...book, ...edit, id: book.id, price: formatPrice(edit.price || book.price) } : book;
+        return {
+          ...base,
+          image: coverOv || base.image,
+          sale_price: ov ? ov.sale_price : base.sale_price,
+          discount_expires_at: ov ? ov.discount_expires_at : base.discount_expires_at,
+          discountExpiresAt: ov ? ov.discount_expires_at : base.discountExpiresAt,
+        };
       }),
       ...localOnlyBooks,
     ];
@@ -369,19 +573,24 @@ export const api = {
 
 
   async getBook(id: string): Promise<Book | null> {
+    const coverOverrides = getCoverOverrides();
+    const discountOverrides = getDiscountOverrides();
+
     // 1. First check locally-created admin books (local_ IDs only)
     if (typeof window !== 'undefined' && String(id).startsWith('local_')) {
       try {
         const adminBooks: any[] = JSON.parse(localStorage.getItem('admin_books') || '[]');
         const localBook = adminBooks.find((b: any) => String(b.id) === String(id));
         if (localBook) {
+          const coverOv = coverOverrides[String(id)];
+          const discountOv = discountOverrides[String(id)];
           return {
             id: String(localBook.id),
             title: localBook.title || '',
             author: localBook.author || '',
             price: formatPrice(localBook.price),
             rating: Number(localBook.rating) || 5,
-            image: fixMediaUrl(localBook.image || localBook.imageUrl || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop'),
+            image: coverOv || fixMediaUrl(localBook.image || localBook.imageUrl || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop'),
             category: localBook.category || 'Badiiy',
             description: localBook.description || '',
             pages: Number(localBook.pages) || 0,
@@ -392,6 +601,9 @@ export const api = {
             content: localBook.content || '',
             is_weekly_top: Boolean(localBook.is_weekly_top || localBook.isWeeklyTop),
             isWeeklyTop: Boolean(localBook.is_weekly_top || localBook.isWeeklyTop),
+            sale_price: discountOv ? discountOv.sale_price : (localBook.sale_price != null ? Number(localBook.sale_price) : null),
+            discount_expires_at: discountOv ? discountOv.discount_expires_at : (localBook.discount_expires_at || null),
+            discountExpiresAt: discountOv ? discountOv.discount_expires_at : (localBook.discount_expires_at || null),
           } as any;
         }
       } catch { }
@@ -402,6 +614,26 @@ export const api = {
     const raw = await fetchWithFallback<any | null>(`/books/${id}/`, { method: 'GET' }, localBook);
     const book = raw ? mapDjangoBookToBook(raw) : null;
     if (book) {
+      const coverOv = coverOverrides[String(id)];
+      if (coverOv) book.image = coverOv;
+      const discountOv = discountOverrides[String(id)];
+      if (discountOv) {
+        book.sale_price = discountOv.sale_price;
+        book.discount_expires_at = discountOv.discount_expires_at;
+        (book as any).discountExpiresAt = discountOv.discount_expires_at;
+      }
+      const pricingOverrides = getPricingOverrides();
+      const priceOv = pricingOverrides[String(id)];
+      if (priceOv) {
+        if (priceOv.price_electronic != null) {
+          book.price_electronic = priceOv.price_electronic;
+          book.priceElectronic = formatPrice(priceOv.price_electronic);
+        }
+        if (priceOv.price_paper != null) {
+          book.price_paper = priceOv.price_paper;
+          book.pricePaper = formatPrice(priceOv.price_paper);
+        }
+      }
       return book;
     }
 
@@ -441,6 +673,8 @@ export const api = {
   async deleteBook(id: string): Promise<{ success: boolean; fromBackend: boolean }> {
     // Always track deletion locally so frontend can filter it out
     if (typeof window !== 'undefined') {
+      removeCoverOverride(id);
+      saveDiscountOverride(id, null, null);
       // Remove from admin_books edits
       try {
         const stored: any[] = JSON.parse(localStorage.getItem('admin_books') || '[]');
@@ -472,12 +706,24 @@ export const api = {
 
   // Create a book — tries backend POST, falls back to local admin_books only
   async createBook(data: Partial<Book> & { imageFile?: string }): Promise<{ success: boolean; fromBackend: boolean; book?: Book }> {
+    let descToSave = (data.description || '').replace(/<!--DISCOUNT:.*?-->/g, '').replace(/<!--PRICING:.*?-->/g, '').trim();
+    const saleNum = data.sale_price != null ? Number(data.sale_price) : null;
+    const expAt = data.discount_expires_at || data.discountExpiresAt || null;
+    if (saleNum && saleNum > 0) {
+      descToSave = `${descToSave}\n<!--DISCOUNT:${JSON.stringify({ sale_price: saleNum, discount_expires_at: expAt })}-->`;
+    }
+    const pe = data.price_electronic != null ? Number(data.price_electronic) : (data.priceElectronic ? Number(String(data.priceElectronic).replace(/\D/g, '')) : null);
+    const pp = data.price_paper != null ? Number(data.price_paper) : (data.pricePaper ? Number(String(data.pricePaper).replace(/\D/g, '')) : null);
+    if (pe != null || pp != null) {
+      descToSave = `${descToSave}\n<!--PRICING:${JSON.stringify({ price_electronic: pe, price_paper: pp })}-->`;
+    }
+
     const payload = {
       title: data.title,
       author: data.author,
       category: data.category,
       price: data.price,
-      description: data.description,
+      description: descToSave,
       pages: data.pages,
       language: data.language,
       year: data.publishedYear,
@@ -520,6 +766,8 @@ export const api = {
   // Update a book — sends backend PATCH, also syncs localStorage
   async updateBook(id: string, data: any, imageFile?: File | null): Promise<{ success: boolean; fromBackend: boolean }> {
     let fromBackend = false;
+    const pe = data.price_electronic != null ? Number(data.price_electronic) : (data.priceElectronic ? Number(String(data.priceElectronic).replace(/\D/g, '')) : null);
+    const pp = data.price_paper != null ? Number(data.price_paper) : (data.pricePaper ? Number(String(data.pricePaper).replace(/\D/g, '')) : null);
 
     // 1. Try backend PATCH
     try {
@@ -555,6 +803,16 @@ export const api = {
 
       const yearDigits = Number(String(data.year || data.publishedYear || '').match(/\d{4}/)?.[0] || '2024');
       const ratingNum = parseFloat(String(data.rating || '5.0')) || 5.0;
+      // Description ichiga discount va pricing metadata joylash (Render PostgreSQL backend da abadiy saqlanadi)
+      let descToSave = (data.description || '').replace(/<!--DISCOUNT:.*?-->/g, '').replace(/<!--PRICING:.*?-->/g, '').trim();
+      const saleNum = data.sale_price != null ? Number(data.sale_price) : (data.salePriceNum != null ? Number(data.salePriceNum) : null);
+      const expAt = data.discount_expires_at || data.discountExpiresAt || null;
+      if (saleNum && saleNum > 0) {
+        descToSave = `${descToSave}\n<!--DISCOUNT:${JSON.stringify({ sale_price: saleNum, discount_expires_at: expAt })}-->`;
+      }
+      if (pe != null || pp != null) {
+        descToSave = `${descToSave}\n<!--PRICING:${JSON.stringify({ price_electronic: pe, price_paper: pp })}-->`;
+      }
       const isWeekly = Boolean(data.is_weekly_top || data.isWeeklyTop);
 
       const patchData: Record<string, any> = {
@@ -566,13 +824,18 @@ export const api = {
         rating: ratingNum,
         pages: Number(data.pages) || 0,
         language: data.language || "O'zbek tili",
-        description: data.description || '',
+        description: descToSave,
         content: data.content || '',
         is_weekly_top: isWeekly,
         is_trending: isWeekly,
         has_audio: Boolean(data.hasAudio !== undefined ? data.hasAudio : data.has_audio),
         audio_url: data.audioUrl || data.audio_url || '',
       };
+
+      if (data.imageUrl && !data.imageUrl.startsWith('data:')) {
+        patchData.cover_image_url = data.imageUrl;
+        patchData.image = data.imageUrl;
+      }
 
       let fileToUpload = imageFile;
       if (!fileToUpload && typeof data.imageUrl === 'string' && data.imageUrl.startsWith('data:image/')) {
@@ -611,8 +874,14 @@ export const api = {
       }
     } catch { }
 
-    // 2. Also sync to localStorage
+    // 2. Also sync to localStorage & permanent cover overrides
     if (typeof window !== 'undefined') {
+      if (data.imageUrl || data.image) {
+        saveCoverOverride(String(id), data.imageUrl || data.image);
+      }
+      if (pe != null || pp != null) {
+        savePricingOverride(String(id), pe, pp);
+      }
       try {
         const stored: any[] = JSON.parse(localStorage.getItem('admin_books') || '[]');
         const idx = stored.findIndex(b => String(b.id) === String(id));
@@ -621,6 +890,10 @@ export const api = {
           ...data,
           id: String(id),
           price: formatPrice(data.price),
+          price_electronic: pe,
+          price_paper: pp,
+          priceElectronic: formatPrice(pe),
+          pricePaper: formatPrice(pp),
         };
         if (data.is_weekly_top || data.isWeeklyTop) {
           stored.forEach((b: any) => {

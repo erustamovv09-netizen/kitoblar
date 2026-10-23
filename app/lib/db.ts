@@ -1,5 +1,7 @@
 "use client";
 
+import { formatUzbekDateTime } from './date';
+
 export interface Review {
   id: string;
   bookId: string;
@@ -45,13 +47,7 @@ export const mockDB = {
     const newReview: Review = {
       ...review,
       id: String(Date.now()),
-      createdAt: new Date().toLocaleDateString('uz-UZ', { 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      })
+      createdAt: formatUzbekDateTime()
     };
 
     if (typeof window !== "undefined") {

@@ -1,7 +1,9 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Heart, Share2, BookOpen, Headphones, Package, Star, X, Send, MessageCircle, Copy, Check } from 'lucide-react';
+import { Heart, Share2, BookOpen, Headphones, Package, Star, X, Send, MessageCircle, Copy, Check, CheckCircle2, Clock } from 'lucide-react';
+import { checkBookAccess } from '@/app/lib/purchases';
+import PurchaseModal from '@/components/PurchaseModal';
 import styles from './page.module.css';
 
 type Favorite = { id: string; title: string; author: string; price: string; rating: number; image: string; category: string };
@@ -25,6 +27,38 @@ export default function BookActions({ book, recommended }: { book: Book; recomme
     const [shareOpen, setShareOpen] = useState(false);
     const [copied, setCopied] = useState(false);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [isPurchased, setIsPurchased] = useState(false);
+    const [isPending, setIsPending] = useState(false);
+    const [pendingReceipt, setPendingReceipt] = useState('');
+    const [purchaseModalOpen, setPurchaseModalOpen] = useState(false);
+    const [modalFormat, setModalFormat] = useState<'electronic' | 'paper'>('electronic');
+
+    useEffect(() => {
+        let mounted = true;
+        async function runCheck() {
+            try {
+                const res = await checkBookAccess(book.id);
+                if (!mounted) return;
+                setIsPurchased(res.isPurchased);
+                setIsPending(res.isPending);
+                if (res.receiptNumber) setPendingReceipt(res.receiptNumber);
+            } catch {
+                if (!mounted) return;
+                setIsPurchased(false);
+                setIsPending(false);
+            }
+        }
+        runCheck();
+        window.addEventListener('book-purchased', runCheck);
+        window.addEventListener('order-submitted', runCheck);
+        window.addEventListener('storage', runCheck);
+        return () => {
+            mounted = false;
+            window.removeEventListener('book-purchased', runCheck);
+            window.removeEventListener('order-submitted', runCheck);
+            window.removeEventListener('storage', runCheck);
+        };
+    }, [book.id]);
 
     useEffect(() => {
         try {
@@ -68,8 +102,8 @@ export default function BookActions({ book, recommended }: { book: Book; recomme
                 setIsFav(false);
                 setToast('Sevimlilardan olindi');
             } else {
-                next = [{ 
-                    id: book.id, 
+                next = [{
+                    id: book.id,
                     title: book.title,
                     author: book.author,
                     price: book.price,
@@ -98,7 +132,7 @@ export default function BookActions({ book, recommended }: { book: Book; recomme
                 title: book.title,
                 text: `${book.title} — ${book.author}`,
                 url: shareUrl,
-            }).catch(() => {});
+            }).catch(() => { });
         } else {
             // Open direct share modal with Telegram, WhatsApp, Copy
             setShareOpen(true);
@@ -124,13 +158,13 @@ export default function BookActions({ book, recommended }: { book: Book; recomme
     }
 
     function handleBuy() {
-        setToast('Sotib olish tugmasi bosildi — demo');
-        setTimeout(() => setToast(''), 2000);
+        setModalFormat('electronic');
+        setPurchaseModalOpen(true);
     }
-    
+
     function handleOrderPhysical() {
-        setToast("Qog'oz kitob buyurtma qilish — tez kunda");
-        setTimeout(() => setToast(''), 2000);
+        setModalFormat('paper');
+        setPurchaseModalOpen(true);
     }
 
     const desc = book?.description || '';
@@ -160,21 +194,51 @@ export default function BookActions({ book, recommended }: { book: Book; recomme
                 )}
             </div>
 
+            {isPending && !isPurchased && (
+                <div style={{
+                    background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.35)',
+                    borderRadius: '12px', padding: '10px 14px', marginBottom: '1rem',
+                    fontSize: '0.85rem', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '8px'
+                }}>
+                    <Clock size={16} style={{ flexShrink: 0 }} />
+                    <span>To&apos;lov tekshirilmoqda {pendingReceipt ? `(#${pendingReceipt})` : ''}. Admin tasdiqlashi bilan ochiladi.</span>
+                </div>
+            )}
+
             <div className={styles.actionButtons}>
-                    <Link href={readHref} className={styles.primaryBtn} style={{ display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
-                        <BookOpen size={18} /> Mutolaa
+                <Link href={readHref} className={styles.primaryBtn} style={{ display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                    <BookOpen size={18} /> {isPurchased ? "To'liq mutolaa" : "Mutolaa (Tanishuv)"}
+                </Link>
+                {book.hasAudio && (
+                    <Link href={listenHref} className={styles.primaryBtn} style={{ backgroundColor: '#8b5cf6', display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                        <Headphones size={18} /> {isPurchased ? "To'liq eshitish" : "Eshitish (Namunaviy)"}
                     </Link>
-                    {book.hasAudio && (
-                        <Link href={listenHref} className={styles.primaryBtn} style={{ backgroundColor: '#8b5cf6', display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
-                            <Headphones size={18} /> Eshitish
-                        </Link>
-                    )}
-                <button onClick={handleBuy} className={styles.primaryBtn} style={{ backgroundColor: 'transparent', color: 'var(--text-primary)', border: '1px solid var(--search-border)', display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
-                    Sotib olish
+                )}
+                <button
+                    onClick={handleBuy}
+                    className={styles.primaryBtn}
+                    style={{
+                        backgroundColor: isPurchased ? 'rgba(16, 185, 129, 0.15)' : isPending ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
+                        color: isPurchased ? '#10b981' : isPending ? '#f59e0b' : 'var(--text-primary)',
+                        borderColor: isPurchased ? 'rgba(16, 185, 129, 0.35)' : isPending ? 'rgba(245, 158, 11, 0.4)' : 'var(--search-border)',
+                        border: '1px solid',
+                        display: 'inline-flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}
+                >
+                    {isPurchased ? <><CheckCircle2 size={18} /> Xarid qilingan</> : isPending ? <><Clock size={18} /> To&apos;lov kutilmoqda</> : book.hasAudio ? "Sotib olish " : "Sotib olish"}
                 </button>
                 <div className={styles.iconBtnsRow}>
-                    <button className={styles.iconBtn} onClick={toggleFavorite} aria-label="Sevimlilar" title="Sevimlilarga qo'shish" style={{ color: isFav ? '#ef4444' : 'inherit', borderColor: isFav ? '#ef4444' : 'inherit' }}>
-                        <Heart size={18} />
+                    <button
+                        className={`${styles.iconBtn} ${isFav ? styles.activeFav : ''}`}
+                        onClick={toggleFavorite}
+                        aria-label="Sevimlilar"
+                        title={isFav ? "Sevimlilardan o'chirish" : "Sevimlilarga qo'shish"}
+                        style={{ color: isFav ? '#ef4444' : 'inherit', borderColor: isFav ? '#ef4444' : 'inherit' }}
+                    >
+                        <Heart size={18} fill={isFav ? '#ef4444' : 'none'} color={isFav ? '#ef4444' : 'currentColor'} />
                     </button>
                     <button className={styles.iconBtn} onClick={shareBook} aria-label="Ulashish" title="Do'stlar bilan ulashish">
                         <Share2 size={18} />
@@ -184,8 +248,8 @@ export default function BookActions({ book, recommended }: { book: Book; recomme
 
 
             <div style={{ marginTop: '1rem' }}>
-                <button onClick={handleOrderPhysical} className={styles.primaryBtn} style={{ backgroundColor: 'transparent', width: '100%', maxWidth: 'none', color: 'var(--text-secondary)', border: '1px dashed var(--search-border)', display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
-                    <Package size={18} /> Qog'oz formatda buyurtma qilish
+                <button onClick={handleOrderPhysical} className={styles.primaryBtn} style={{ backgroundColor: 'rgba(79, 142, 247, 0.08)', width: '100%', maxWidth: 'none', color: 'var(--accent-blue, #4f8ef7)', border: '1px dashed rgba(79, 142, 247, 0.35)', display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                    <Package size={18} /> Qog&apos;oz formatda buyurtma qilish ({(book as any).pricePaper || book.price})
                 </button>
             </div>
 
@@ -219,7 +283,7 @@ export default function BookActions({ book, recommended }: { book: Book; recomme
                         borderRadius: '20px', padding: '1.75rem', width: '100%', maxWidth: '380px',
                         boxShadow: '0 20px 50px rgba(0,0,0,0.5)', position: 'relative'
                     }} onClick={(e) => e.stopPropagation()}>
-                        
+
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
                             <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                                 Kitobni ulashish
@@ -294,6 +358,14 @@ export default function BookActions({ book, recommended }: { book: Book; recomme
                     </div>
                 </div>
             )}
+
+            <PurchaseModal
+                isOpen={purchaseModalOpen}
+                onClose={() => setPurchaseModalOpen(false)}
+                book={book as any}
+                initialFormat={modalFormat}
+                onSuccess={() => setIsPurchased(true)}
+            />
         </>
     );
 }
