@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { restoreUserSession } from '@/app/lib/session';
 import { formatUzbekDateTime } from '@/app/lib/date';
+import { syncUserFromCloud, pushDataToCloud } from '@/app/lib/userSync';
 import styles from './PurchaseModal.module.css';
 
 export interface PurchaseModalBook {
@@ -349,6 +350,9 @@ export default function PurchaseModal({ isOpen, onClose, book, initialFormat = '
 
       // 3. Send order to server /api/orders (status: 'pending', triggers Telegram alert to Admin)
       const userSessionEmail = localStorage.getItem('email') || '';
+      const userSessionUsername = localStorage.getItem('username') || '';
+      const currentBuyerName = userName.trim() || userSessionUsername || 'Foydalanuvchi';
+
       await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -366,7 +370,7 @@ export default function PurchaseModal({ isOpen, onClose, book, initialFormat = '
           price: currentPriceNum,
           originalPrice: currentOriginalNum,
           paymentMethod,
-          userName: userName.trim() || 'Foydalanuvchi',
+          userName: currentBuyerName,
           userEmail: userSessionEmail,
           userPhone: selectedFormat === 'paper' ? phone.trim() : '',
           senderCardLast4: cleanCardLast4,
@@ -384,6 +388,14 @@ export default function PurchaseModal({ isOpen, onClose, book, initialFormat = '
 
       // Dispatch event so UI knows a purchase order was submitted
       window.dispatchEvent(new CustomEvent('order-submitted', { detail: { bookId: String(book.id) } }));
+
+      // Push and sync with cloud so any active session on another device picks up immediately
+      try {
+        await pushDataToCloud({});
+        await syncUserFromCloud();
+      } catch (syncErr) {
+        console.warn("Cloud sync after order submission:", syncErr);
+      }
 
       if (onSuccess) {
         onSuccess(book.id, selectedFormat);

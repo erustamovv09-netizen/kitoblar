@@ -7,6 +7,7 @@ import { BookOpen, User, Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, AlertCi
 import { motion } from 'framer-motion';
 import { getApiBaseUrl } from '../lib/api';
 import { saveUserSession } from '../lib/session';
+import { syncUserFromCloud } from '../lib/userSync';
 import { getTodayUzbekDate } from '../lib/date';
 import styles from './register.module.css';
 
@@ -84,6 +85,8 @@ function RegisterForm() {
         join_date: joinDate,
       });
       
+      await syncUserFromCloud(data.username, { mergeGuestFavorites: true });
+
       router.push(redirectUrl);
     } catch (err: any) {
       setError(err.message || 'Xatolik yuz berdi');

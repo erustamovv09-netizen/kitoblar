@@ -208,15 +208,29 @@ export async function GET(req: NextRequest) {
       return o;
     });
 
-    // Filter by single receipt or phone + bookId if requested
+    // Filter by single receipt or phone/username/email + bookId if requested
     const { searchParams } = new URL(req.url);
     const filterReceipt = searchParams.get('receipt');
     const filterPhone = searchParams.get('phone');
     const filterBookId = searchParams.get('bookId');
+    const filterUsername = searchParams.get('username')?.trim().toLowerCase();
+    const filterEmail = searchParams.get('email')?.trim().toLowerCase();
 
     if (filterReceipt) {
       const match = orders.find(o => o.receiptNumber === filterReceipt || o.id === filterReceipt);
       return NextResponse.json({ success: true, order: match || null });
+    }
+
+    if (filterBookId && (filterUsername || filterEmail)) {
+      const match = orders.find(o => 
+        String(o.bookId) === String(filterBookId) && (
+          (filterUsername && (o.userName || '').toLowerCase().trim() === filterUsername) ||
+          (filterEmail && (o.userEmail || '').toLowerCase().trim() === filterEmail)
+        )
+      );
+      if (match) {
+        return NextResponse.json({ success: true, order: match });
+      }
     }
 
     if (filterPhone && filterBookId) {
@@ -226,6 +240,30 @@ export async function GET(req: NextRequest) {
         o.userPhone.replace(/\D/g, '').includes(digits)
       );
       return NextResponse.json({ success: true, order: match || null });
+    }
+
+    // If only user is requested, return that user's orders
+    if (filterUsername || filterEmail) {
+      const userOrders = orders.filter(o => 
+        (filterUsername && (o.userName || '').toLowerCase().trim() === filterUsername) ||
+        (filterEmail && (o.userEmail || '').toLowerCase().trim() === filterEmail)
+      );
+      userOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      return NextResponse.json({
+        success: true,
+        orders: userOrders,
+        stats: {
+          totalOrders: userOrders.length,
+          totalRevenue: userOrders
+            .filter(o => o.status !== 'cancelled' && o.status !== 'pending')
+            .reduce((sum, o) => sum + (Number(o.price) || 0), 0),
+          pendingCount: userOrders.filter(o => o.status === 'pending').length,
+          electronicCount: userOrders.filter(o => o.format === 'electronic').length,
+          paperCount: userOrders.filter(o => o.format === 'paper').length,
+          completedCount: userOrders.filter(o => o.status === 'completed' || o.status === 'delivered').length,
+          processingCount: userOrders.filter(o => o.status === 'processing').length,
+        }
+      });
     }
 
     // Sort newest first

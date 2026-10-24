@@ -1,0 +1,58 @@
+{
+  "elshod": {
+    "favorites": [
+      {
+        "id": "7",
+        "title": "1500 yillik Maxbuslar",
+        "author": "Xoshim Abdullox",
+        "price": "100,000 so'm",
+        "rating": 5,
+        "image": "https://kitoblar-backend.onrender.com/media/book_covers/2026-10-16_23.31.23.jpg",
+        "category": "Badiiy asarlar"
+      },
+      {
+        "id": "1",
+        "title": "Binafsha shu'lasi (2-qism)",
+        "author": "Usoma Muslim",
+        "price": "33,000 so'm",
+        "rating": 5,
+        "image": "https://kitoblar-backend.onrender.com/media/book_covers/Image_binafsha_2_aXiftsK.jpg",
+        "category": "Badiiy asarlar"
+      }
+    ],
+    "purchasedBooks": [
+      {
+        "id": "3",
+        "title": "Ko'zlaringni haromdan saqla",
+        "author": "Merve O'zjan",
+        "format": "electronic",
+        "price": 38000,
+        "receiptNumber": "AKS-657494",
+        "image": "/images/kozlaringni-haromdan-saqla.jpg",
+        "date": "2026-10-23T09:36:18.776Z"
+      }
+    ],
+    "bookStatuses": {},
+    "quotes": [],
+    "profile": {},
+    "lastUpdated": "2026-10-24T12:01:13.378Z"
+  },
+  "rustamov": {
+    "favorites": [
+      {
+        "id": "1",
+        "title": "Binafsha shu'lasi (2-qism)",
+        "author": "Usoma Muslim",
+        "price": "65 000 so'm",
+        "rating": 4.5,
+        "image": "https://kitoblar-backend.onrender.com/media/book_covers/Image_binafsha_2_aXiftsK.jpg",
+        "category": "Badiiy asarlar"
+      }
+    ],
+    "purchasedBooks": [],
+    "bookStatuses": {},
+    "quotes": [],
+    "profile": {},
+    "lastUpdated": "2026-10-24T12:01:28.233Z"
+  }
+}

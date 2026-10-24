@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import UserSyncManager from "@/components/UserSyncManager";
 
 export const metadata: Metadata = {
   title: "Kitoblar Portali | Premium E-Library",
@@ -38,6 +39,7 @@ export default function RootLayout({
         />
       </head>
       <body>
+        <UserSyncManager />
         <Navbar />
         {children}
         <Footer />

@@ -46,6 +46,7 @@ import { booksDB } from '../lib/books';
 import { api, getStaticBookCover } from '../lib/api';
 import styles from './page.module.css';
 import { restoreUserSession, saveUserSession, clearUserSession } from '../lib/session';
+import { syncUserFromCloud, pushDataToCloud } from '../lib/userSync';
 import { formatUzbekDate, getTodayUzbekDate } from '../lib/date';
 
 export interface OrderItemDisplay {
@@ -270,6 +271,30 @@ export default function AccountPage() {
         }).catch(err => {
             console.error("Failed to load books for account page", err);
         });
+
+        // Sync latest cloud data for this user across all devices
+        syncUserFromCloud().then(() => {
+            try {
+                const rawFav = localStorage.getItem('favorites');
+                if (rawFav) setFavorites(JSON.parse(rawFav));
+                const rawStatuses = localStorage.getItem('book_statuses');
+                if (rawStatuses) setBookStatuses(JSON.parse(rawStatuses));
+                const rawQuotes = localStorage.getItem('book_quotes');
+                if (rawQuotes) setQuotes(JSON.parse(rawQuotes));
+            } catch {}
+            loadOrders(true);
+        });
+
+        const handleFavUpdate = () => {
+            try {
+                const raw = localStorage.getItem('favorites');
+                setFavorites(raw ? JSON.parse(raw) : []);
+            } catch {}
+        };
+        window.addEventListener('fav-updated', handleFavUpdate);
+        return () => {
+            window.removeEventListener('fav-updated', handleFavUpdate);
+        };
     }, []);
 
     // Helper to format date in Uzbek
@@ -343,12 +368,20 @@ export default function AccountPage() {
                 console.error('Failed to fetch server orders:', e);
             }
 
-            // 4. Cross-check pending orders with server updates
+            // 4. Cross-check pending orders and user purchases with server updates
             let updatedPending = [...pendingList];
             let updatedPurchased = [...purchasedList];
             let hadChanges = false;
 
+            const userName = (localStorage.getItem('username') || localStorage.getItem('name') || '').toLowerCase().trim();
+            const userEmail = (localStorage.getItem('email') || '').toLowerCase().trim();
+            const userPhoneDigits = (localStorage.getItem('user_phone') || '').replace(/\D/g, '').slice(-9);
+
             serverOrders.forEach((so: any) => {
+                const soUser = (so.userName || '').toLowerCase().trim();
+                const soEmail = (so.userEmail || '').toLowerCase().trim();
+                const isUserOrder = (userName && soUser === userName) || (userEmail && soEmail === userEmail);
+
                 const pIdx = updatedPending.findIndex(
                     p => (p.receiptNumber && p.receiptNumber.replace('#', '') === so.receiptNumber?.replace('#', '')) ||
                         String(p.bookId) === String(so.bookId)
@@ -375,18 +408,33 @@ export default function AccountPage() {
                         updatedPending[pIdx].status = 'cancelled';
                         hadChanges = true;
                     }
+                } else if (isUserOrder && (so.status === 'completed' || so.status === 'delivered')) {
+                    // Buyurtma boshqa qurilmadan (masalan noutbukdan) qilingan bo'lsa ham, ushbu qurilmaga (telefonga) darhol ruxsat berish
+                    const existingPurchased = updatedPurchased.find(b => String(b.id) === String(so.bookId));
+                    if (!existingPurchased) {
+                        updatedPurchased.push({
+                            id: String(so.bookId),
+                            title: so.bookTitle,
+                            author: so.bookAuthor,
+                            format: so.format,
+                            price: so.price,
+                            receiptNumber: so.receiptNumber,
+                            image: so.bookImage,
+                            date: so.createdAt,
+                        });
+                        hadChanges = true;
+                        window.dispatchEvent(new CustomEvent('book-purchased', { detail: { bookId: so.bookId } }));
+                    }
                 }
             });
 
             if (hadChanges) {
                 localStorage.setItem('pending_orders', JSON.stringify(updatedPending));
                 localStorage.setItem('purchased_books', JSON.stringify(updatedPurchased));
+                pushDataToCloud({ purchasedBooks: updatedPurchased });
             }
 
             // 5. Gather relevant receipts
-            const userEmail = (localStorage.getItem('email') || '').toLowerCase().trim();
-            const userPhoneDigits = (localStorage.getItem('user_phone') || '').replace(/\D/g, '').slice(-9);
-
             const knownReceipts = new Set<string>();
             updatedPending.forEach(p => p.receiptNumber && knownReceipts.add(p.receiptNumber.replace('#', '')));
             updatedPurchased.forEach(p => p.receiptNumber && knownReceipts.add(p.receiptNumber.replace('#', '')));
@@ -394,7 +442,10 @@ export default function AccountPage() {
             const matchedServerOrders: OrderItemDisplay[] = serverOrders.filter(so => {
                 const rClean = (so.receiptNumber || '').replace('#', '');
                 if (knownReceipts.has(rClean)) return true;
-                if (userEmail && so.userEmail && so.userEmail.toLowerCase().trim() === userEmail) return true;
+                const soUser = (so.userName || '').toLowerCase().trim();
+                const soEmail = (so.userEmail || '').toLowerCase().trim();
+                if (userName && soUser === userName) return true;
+                if (userEmail && soEmail === userEmail) return true;
                 if (userPhoneDigits && so.userPhone && so.userPhone.replace(/\D/g, '').includes(userPhoneDigits)) return true;
                 return false;
             }).map(so => ({
@@ -629,6 +680,7 @@ export default function AccountPage() {
         localStorage.setItem('user_bio', bio);
         setEditing(false);
         setIsLoggedIn(true);
+        pushDataToCloud({ profile: { name, email, bio, avatar: avatarEmoji, accent, dailyGoal } });
         setSuccessMessage('Profil muvaffaqiyatli saqlandi ✓');
         logEvent('Profil sozlamalari yangilandi', 'user');
         setTimeout(() => setSuccessMessage(''), 3000);
@@ -638,6 +690,7 @@ export default function AccountPage() {
         setAccent(newAccent);
         localStorage.setItem('account_accent', newAccent);
         window.dispatchEvent(new Event('auth-changed'));
+        pushDataToCloud({ profile: { accent: newAccent } });
         logEvent(`Rangli mavzu o'zgartirildi (${newAccent})`, 'user');
         setSuccessMessage('Mavzu rangi yangilandi');
         setTimeout(() => setSuccessMessage(''), 2000);
@@ -647,6 +700,7 @@ export default function AccountPage() {
         setAvatarEmoji(emoji);
         localStorage.setItem('account_avatar', emoji);
         setShowAvatarSelector(false);
+        pushDataToCloud({ profile: { avatar: emoji } });
         logEvent(`Shaxsiy avatar yangilandi: ${emoji}`, 'user');
         setSuccessMessage('Avatar o‘zgartirildi');
         setTimeout(() => setSuccessMessage(''), 2000);
@@ -656,6 +710,7 @@ export default function AccountPage() {
         setAvatarEmoji('');
         localStorage.removeItem('account_avatar');
         setShowAvatarSelector(false);
+        pushDataToCloud({ profile: { avatar: '' } });
         logEvent("Shaxsiy avatar olib tashlandi (ism bosh harflariga qaytarildi)", 'user');
         setSuccessMessage('Avatar olib tashlandi');
         setTimeout(() => setSuccessMessage(''), 2000);
@@ -665,6 +720,7 @@ export default function AccountPage() {
     function handleGoalSelect(min: number) {
         setDailyGoal(min);
         localStorage.setItem('daily_goal', String(min));
+        pushDataToCloud({ profile: { dailyGoal: min } });
         logEvent(`Kunlik mutolaa maqsadi belgilandi: ${min} daqiqa`, 'goal');
         setSuccessMessage(`Kunlik maqsad: ${min} daqiqa qilib belgilandi`);
         setTimeout(() => setSuccessMessage(''), 2500);
@@ -703,6 +759,7 @@ export default function AccountPage() {
         const nextStatuses = { ...bookStatuses, [bookId]: status };
         setBookStatuses(nextStatuses);
         localStorage.setItem('book_statuses', JSON.stringify(nextStatuses));
+        pushDataToCloud({ bookStatuses: nextStatuses });
 
         const book = activeBooksList.find(b => b.id === bookId);
         const title = book?.title || 'Kitob';
@@ -737,6 +794,7 @@ export default function AccountPage() {
         const nextQuotes = [newQuote, ...quotes];
         setQuotes(nextQuotes);
         localStorage.setItem('book_quotes', JSON.stringify(nextQuotes));
+        pushDataToCloud({ quotes: nextQuotes });
 
         setQuoteText('');
         setQuoteBookId('');
@@ -750,6 +808,7 @@ export default function AccountPage() {
         const nextQuotes = quotes.filter(q => q.id !== id);
         setQuotes(nextQuotes);
         localStorage.setItem('book_quotes', JSON.stringify(nextQuotes));
+        pushDataToCloud({ quotes: nextQuotes });
         logEvent(`"${title}" kitobidan olingan iqtibos o'chirildi`, 'user');
     }
 
@@ -817,6 +876,7 @@ export default function AccountPage() {
         setSuccessMessage('Kitob sevimlilarga qo‘shildi');
         setTimeout(() => setSuccessMessage(''), 2500);
         try { window.dispatchEvent(new CustomEvent('fav-updated')); } catch { }
+        pushDataToCloud({ favorites: next });
     }
 
     function removeFavoriteDirect(id: string, title: string) {
@@ -825,6 +885,7 @@ export default function AccountPage() {
         localStorage.setItem('favorites', JSON.stringify(next));
         logEvent(`"${title}" kitobi sevimlilardan o'chirildi`, 'favorite');
         try { window.dispatchEvent(new CustomEvent('fav-updated')); } catch { }
+        pushDataToCloud({ favorites: next });
     }
 
     function clearFavorites() {
@@ -832,6 +893,7 @@ export default function AccountPage() {
         localStorage.removeItem('favorites');
         logEvent('Barcha sevimli kitoblar o‘chirib tashlandi', 'favorite');
         try { window.dispatchEvent(new CustomEvent('fav-updated')); } catch { }
+        pushDataToCloud({ favorites: [] });
     }
 
     // Enrich favorites with full book info and status

@@ -1,6 +1,8 @@
 // app/lib/purchases.ts
 // Helper to verify user purchase status (locally & with server verification)
 
+import { pushDataToCloud } from './userSync';
+
 export interface AccessResult {
   isPurchased: boolean;
   isPending: boolean;
@@ -33,12 +35,22 @@ export async function checkBookAccess(bookId: string | number): Promise<AccessRe
     const pendingList: any[] = rawPending ? JSON.parse(rawPending) : [];
     const pendingMatch = pendingList.find((p: any) => String(p.bookId) === idStr);
 
-    const phone = localStorage.getItem('user_phone') || '';
-    const query = pendingMatch?.receiptNumber
-      ? `receipt=${encodeURIComponent(pendingMatch.receiptNumber)}`
-      : phone
-      ? `phone=${encodeURIComponent(phone)}&bookId=${encodeURIComponent(idStr)}`
-      : null;
+    const username = localStorage.getItem('username')?.trim() || '';
+    const email = localStorage.getItem('email')?.trim() || '';
+    const phone = localStorage.getItem('user_phone')?.trim() || '';
+
+    let query: string | null = null;
+    if (pendingMatch?.receiptNumber) {
+      query = `receipt=${encodeURIComponent(pendingMatch.receiptNumber)}`;
+    } else if (username || email) {
+      const qParams = new URLSearchParams();
+      qParams.set('bookId', idStr);
+      if (username) qParams.set('username', username);
+      if (email) qParams.set('email', email);
+      query = qParams.toString();
+    } else if (phone) {
+      query = `phone=${encodeURIComponent(phone)}&bookId=${encodeURIComponent(idStr)}`;
+    }
 
     if (query) {
       const res = await fetch(`/api/orders?${query}`).then(r => r.json()).catch(() => null);
@@ -60,6 +72,7 @@ export async function checkBookAccess(bookId: string | number): Promise<AccessRe
               date: order.createdAt,
             });
             localStorage.setItem('purchased_books', JSON.stringify(list));
+            pushDataToCloud({ purchasedBooks: list });
             window.dispatchEvent(new CustomEvent('book-purchased', { detail: { bookId: idStr } }));
           }
           // Remove from pending

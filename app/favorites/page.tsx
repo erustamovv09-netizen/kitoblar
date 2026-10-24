@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Heart, ArrowLeft, BookOpen, Trash2 } from 'lucide-react';
+import { syncUserFromCloud, pushDataToCloud } from '@/app/lib/userSync';
 import BookCard from '@/components/BookCard';
 import styles from './favorites.module.css';
 
@@ -33,6 +34,7 @@ export default function FavoritesPage() {
 
     useEffect(() => {
         loadFavorites();
+        syncUserFromCloud().then(() => loadFavorites());
         window.addEventListener('fav-updated', loadFavorites);
         window.addEventListener('storage', loadFavorites);
         return () => {
@@ -45,6 +47,7 @@ export default function FavoritesPage() {
         localStorage.removeItem('favorites');
         setFavorites([]);
         try { window.dispatchEvent(new CustomEvent('fav-updated')); } catch {}
+        pushDataToCloud({ favorites: [] });
     }
 
     if (!loaded) {

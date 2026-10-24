@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Heart, Share2, BookOpen, Headphones, Star, X, Send, MessageCircle, Copy, Check, CheckCircle2, Clock } from 'lucide-react';
 import { checkBookAccess } from '@/app/lib/purchases';
+import { toggleFavoriteCloud } from '@/app/lib/userSync';
 import PurchaseModal from '@/components/PurchaseModal';
 import styles from './page.module.css';
 
@@ -61,13 +62,22 @@ export default function BookActions({ book, recommended }: { book: Book; recomme
     }, [book.id]);
 
     useEffect(() => {
-        try {
-            const raw = localStorage.getItem('favorites');
-            const list: Favorite[] = raw ? JSON.parse(raw) : [];
-            setIsFav(list.some((f) => f.id === book.id));
-        } catch {
-            setIsFav(false);
-        }
+        const updateFav = () => {
+            try {
+                const raw = localStorage.getItem('favorites');
+                const list: Favorite[] = raw ? JSON.parse(raw) : [];
+                setIsFav(list.some((f) => String(f.id) === String(book.id)));
+            } catch {
+                setIsFav(false);
+            }
+        };
+        updateFav();
+        window.addEventListener('fav-updated', updateFav);
+        window.addEventListener('storage', updateFav);
+        return () => {
+            window.removeEventListener('fav-updated', updateFav);
+            window.removeEventListener('storage', updateFav);
+        };
     }, [book.id]);
 
     useEffect(() => {
@@ -92,31 +102,19 @@ export default function BookActions({ book, recommended }: { book: Book; recomme
         };
     }, []);
 
-    function toggleFavorite() {
+    async function toggleFavorite() {
         try {
-            const raw = localStorage.getItem('favorites');
-            const list: Favorite[] = raw ? JSON.parse(raw) : [];
-            let next: Favorite[];
-            if (list.some((f) => f.id === book.id)) {
-                next = list.filter((f) => f.id !== book.id);
-                setIsFav(false);
-                setToast('Sevimlilardan olindi');
-            } else {
-                next = [{
-                    id: book.id,
-                    title: book.title,
-                    author: book.author,
-                    price: book.price,
-                    rating: book.rating,
-                    image: (book as any).image || '',
-                    category: book.category,
-                }, ...list];
-                setIsFav(true);
-                setToast('Sevimlilarga qo\'shildi');
-            }
-            localStorage.setItem('favorites', JSON.stringify(next));
-            // notify other parts of the app in the same tab
-            try { window.dispatchEvent(new CustomEvent('fav-updated')); } catch { }
+            const nextState = await toggleFavoriteCloud({
+                id: String(book.id),
+                title: book.title,
+                author: book.author,
+                price: book.price,
+                rating: book.rating,
+                image: (book as any).image || '',
+                category: book.category,
+            });
+            setIsFav(nextState);
+            setToast(nextState ? "Sevimlilarga qo'shildi" : "Sevimlilardan olindi");
             setTimeout(() => setToast(''), 2000);
         } catch {
             setToast('Xatolik yuz berdi');

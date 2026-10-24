@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import { api } from '@/app/lib/api';
+import { toggleFavoriteCloud } from '@/app/lib/userSync';
 import styles from './BookCard.module.css';
 
 interface BookCardProps {
@@ -100,14 +101,26 @@ export default function BookCard({
   }, [image]);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem('favorites');
-      if (!raw) return;
-      const favs: BookCardProps[] = JSON.parse(raw);
-      setIsFav(favs.some(f => f.id === id));
-    } catch (e) {
-      console.error(e);
-    }
+    const updateFavState = () => {
+      try {
+        const raw = localStorage.getItem('favorites');
+        if (!raw) {
+          setIsFav(false);
+          return;
+        }
+        const favs: BookCardProps[] = JSON.parse(raw);
+        setIsFav(favs.some(f => String(f.id) === String(id)));
+      } catch (e) {
+        setIsFav(false);
+      }
+    };
+    updateFavState();
+    window.addEventListener('fav-updated', updateFavState);
+    window.addEventListener('storage', updateFavState);
+    return () => {
+      window.removeEventListener('fav-updated', updateFavState);
+      window.removeEventListener('storage', updateFavState);
+    };
   }, [id]);
 
   useEffect(() => {
@@ -149,24 +162,11 @@ export default function BookCard({
     return () => window.removeEventListener('reviews-updated', handleRatingUpdate);
   }, [id, rating]);
 
-  function toggleFavorite(e: React.MouseEvent) {
+  async function toggleFavorite(e: React.MouseEvent) {
     e.stopPropagation();
     e.preventDefault();
-    try {
-      const raw = localStorage.getItem('favorites');
-      const favs: BookCardProps[] = raw ? JSON.parse(raw) : [];
-      const exists = favs.some(f => f.id === id);
-      let next: BookCardProps[];
-      if (exists) {
-        next = favs.filter(f => f.id !== id);
-      } else {
-        next = [{ id, title, author, price, rating, image, category }, ...favs];
-      }
-      localStorage.setItem('favorites', JSON.stringify(next));
-      setIsFav(!exists);
-    } catch (err) {
-      console.error('Failed to toggle favorite', err);
-    }
+    const nextState = await toggleFavoriteCloud({ id, title, author, price, rating: currentRating, image: imgSrc, category });
+    setIsFav(nextState);
   }
   return (
     <Link href={`/book/${id}`} style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', textDecoration: 'none' }}>

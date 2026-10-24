@@ -7,6 +7,7 @@ import { BookOpen, Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, AlertCircle, 
 import { motion } from 'framer-motion';
 import { getApiBaseUrl } from '../lib/api';
 import { saveUserSession } from '../lib/session';
+import { syncUserFromCloud } from '../lib/userSync';
 import { formatUzbekDate, getTodayUzbekDate } from '../lib/date';
 import styles from './login.module.css';
 
@@ -60,6 +61,9 @@ function LoginForm() {
         join_date: joinDate,
       });
       
+      // Bulutdagi barcha sevimlilar va xaridlarni ushbu qurilmaga darhol sinxronlash
+      await syncUserFromCloud(data.username, { mergeGuestFavorites: true });
+
       // Kirgandan so'ng to'xtagan kitobiga yoki ko'zlangan sahifaga yo'naltirish
       router.push(redirectUrl);
     } catch (err: any) {
