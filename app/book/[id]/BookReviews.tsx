@@ -28,6 +28,14 @@ export default function BookReviews({ bookId }: BookReviewsProps) {
       const data = await api.getReviews(bookId);
       setReviews(data);
       setLoading(false);
+      if (Array.isArray(data) && data.length > 0) {
+        const avg = Math.round((data.reduce((sum, r) => sum + r.rating, 0) / data.length) * 10) / 10;
+        try {
+          localStorage.setItem(`book_rating_${bookId}`, String(avg));
+          localStorage.setItem(`book_reviews_count_${bookId}`, String(data.length));
+          window.dispatchEvent(new CustomEvent('reviews-updated', { detail: { bookId, avg, count: data.length } }));
+        } catch {}
+      }
     }
 
     // Attempt to load username from localStorage
@@ -67,7 +75,8 @@ export default function BookReviews({ bookId }: BookReviewsProps) {
       comment: finalComment
     });
 
-    setReviews(prev => [newReview, ...prev]);
+    const updatedList = [newReview, ...reviews];
+    setReviews(updatedList);
     setComment('');
     setRating(0); // Reset after submitting
     setHoverRating(null);
@@ -76,7 +85,10 @@ export default function BookReviews({ bookId }: BookReviewsProps) {
 
     // Notify other components of update in real-time
     try {
-      window.dispatchEvent(new CustomEvent('reviews-updated'));
+      const newAvg = Math.round((updatedList.reduce((sum, r) => sum + r.rating, 0) / updatedList.length) * 10) / 10;
+      localStorage.setItem(`book_rating_${bookId}`, String(newAvg));
+      localStorage.setItem(`book_reviews_count_${bookId}`, String(updatedList.length));
+      window.dispatchEvent(new CustomEvent('reviews-updated', { detail: { bookId, avg: newAvg, count: updatedList.length } }));
     } catch {}
 
     setTimeout(() => setSuccess(false), 3500);

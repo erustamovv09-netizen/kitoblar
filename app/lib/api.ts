@@ -502,7 +502,17 @@ export const api = {
         };
       });
 
-      const result = [...filteredWithOverrides, ...localOnlyBooks];
+      const result = [...filteredWithOverrides, ...localOnlyBooks].map(b => {
+        if (typeof window !== 'undefined') {
+          try {
+            const stored = localStorage.getItem(`book_rating_${b.id}`);
+            if (stored && !isNaN(Number(stored))) {
+              return { ...b, rating: Number(stored) };
+            }
+          } catch {}
+        }
+        return b;
+      });
       if (typeof window !== 'undefined' && result.length > 0) {
         try {
           localStorage.setItem('cached_full_books', JSON.stringify(result));
@@ -633,6 +643,14 @@ export const api = {
           book.price_paper = priceOv.price_paper;
           book.pricePaper = formatPrice(priceOv.price_paper);
         }
+      }
+      if (typeof window !== 'undefined') {
+        try {
+          const stored = localStorage.getItem(`book_rating_${id}`);
+          if (stored && !isNaN(Number(stored))) {
+            book.rating = Number(stored);
+          }
+        } catch {}
       }
       return book;
     }
@@ -935,7 +953,22 @@ export const api = {
           combined.push(loc);
         }
       }
-      return combined;
+      const finalReviews = combined;
+      if (typeof window !== 'undefined' && finalReviews.length > 0) {
+        try {
+          const avg = Math.round((finalReviews.reduce((sum, r) => sum + r.rating, 0) / finalReviews.length) * 10) / 10;
+          localStorage.setItem(`book_rating_${bookId}`, String(avg));
+          localStorage.setItem(`book_reviews_count_${bookId}`, String(finalReviews.length));
+        } catch {}
+      }
+      return finalReviews;
+    }
+    if (typeof window !== 'undefined' && localReviews.length > 0) {
+      try {
+        const avg = Math.round((localReviews.reduce((sum, r) => sum + r.rating, 0) / localReviews.length) * 10) / 10;
+        localStorage.setItem(`book_rating_${bookId}`, String(avg));
+        localStorage.setItem(`book_reviews_count_${bookId}`, String(localReviews.length));
+      } catch {}
     }
     return localReviews;
   },

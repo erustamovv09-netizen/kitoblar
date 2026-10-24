@@ -4,6 +4,7 @@ import { Star, Heart, Headphones, Flame, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
+import { api } from '@/app/lib/api';
 import styles from './BookCard.module.css';
 
 interface BookCardProps {
@@ -75,6 +76,15 @@ export default function BookCard({
 }: BookCardProps) {
   const [isFav, setIsFav] = useState(false);
   const [imgSrc, setImgSrc] = useState(image || FALLBACK_IMAGE);
+  const [currentRating, setCurrentRating] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem(`book_rating_${id}`);
+        if (stored && !isNaN(Number(stored))) return Number(stored);
+      } catch {}
+    }
+    return rating;
+  });
 
   const numericPrice = Number(String(price || '').replace(/[^\d]/g, '')) || 0;
   const saleNum = Number(String(sale_price || salePrice || '').replace(/[^\d]/g, '')) || 0;
@@ -99,6 +109,45 @@ export default function BookCard({
       console.error(e);
     }
   }, [id]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem(`book_rating_${id}`);
+        if (stored && !isNaN(Number(stored))) {
+          setCurrentRating(Number(stored));
+        } else {
+          api.getReviews(id).then(revs => {
+            if (Array.isArray(revs) && revs.length > 0) {
+              const avg = Math.round((revs.reduce((sum, r) => sum + r.rating, 0) / revs.length) * 10) / 10;
+              setCurrentRating(avg);
+              try {
+                localStorage.setItem(`book_rating_${id}`, String(avg));
+                localStorage.setItem(`book_reviews_count_${id}`, String(revs.length));
+              } catch {}
+            }
+          }).catch(() => {});
+        }
+      } catch {}
+    }
+
+    const handleRatingUpdate = (e: any) => {
+      try {
+        if (e?.detail?.bookId && String(e.detail.bookId) !== String(id)) return;
+        if (e?.detail?.avg) {
+          setCurrentRating(Math.round(e.detail.avg * 10) / 10);
+        } else if (typeof window !== 'undefined') {
+          const stored = localStorage.getItem(`book_rating_${id}`);
+          if (stored && !isNaN(Number(stored))) {
+            setCurrentRating(Number(stored));
+          }
+        }
+      } catch {}
+    };
+
+    window.addEventListener('reviews-updated', handleRatingUpdate);
+    return () => window.removeEventListener('reviews-updated', handleRatingUpdate);
+  }, [id, rating]);
 
   function toggleFavorite(e: React.MouseEvent) {
     e.stopPropagation();
@@ -172,7 +221,7 @@ export default function BookCard({
           <div className={styles.footer}>
             <div className={styles.rating}>
               <Star className={styles.starIcon} size={16} fill="currentColor" />
-              <span>{rating}</span>
+              <span>{currentRating}</span>
             </div>
             {hasDiscount ? (
               <div className={styles.priceWrapper}>

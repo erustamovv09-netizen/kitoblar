@@ -66,6 +66,7 @@ export default function BookDetails() {
   const [book, setBook] = useState<Book | null>(null);
   const [recommended, setRecommended] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentRating, setCurrentRating] = useState<number>(5);
 
   useEffect(() => {
     if (!id) return;
@@ -76,6 +77,7 @@ export default function BookDetails() {
         const found = await api.getBook(id);
         setBook(found);
         if (found) {
+          setCurrentRating(found.rating);
           const recs = await api.getRecommendedBooks(found.id);
           setRecommended(recs || []);
         }
@@ -86,6 +88,32 @@ export default function BookDetails() {
       }
     }
     load();
+
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem(`book_rating_${id}`);
+        if (stored && !isNaN(Number(stored))) {
+          setCurrentRating(Number(stored));
+        }
+      } catch {}
+    }
+
+    const handleRatingUpdate = (e: any) => {
+      try {
+        if (e?.detail?.bookId && String(e.detail.bookId) !== String(id)) return;
+        if (e?.detail?.avg) {
+          setCurrentRating(Math.round(e.detail.avg * 10) / 10);
+        } else if (typeof window !== 'undefined') {
+          const stored = localStorage.getItem(`book_rating_${id}`);
+          if (stored && !isNaN(Number(stored))) {
+            setCurrentRating(Number(stored));
+          }
+        }
+      } catch {}
+    };
+
+    window.addEventListener('reviews-updated', handleRatingUpdate);
+    return () => window.removeEventListener('reviews-updated', handleRatingUpdate);
   }, [id]);
 
   if (loading) {
@@ -133,7 +161,7 @@ export default function BookDetails() {
             <div className={styles.metaRow}>
               <div className={styles.rating}>
                 <span className={styles.star}>★</span>
-                <span>{book.rating}</span>
+                <span>{currentRating}</span>
               </div>
               <div className={styles.divider}>•</div>
               <div className={styles.metaItem}>{book.pages} bet</div>
