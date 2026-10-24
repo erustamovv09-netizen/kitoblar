@@ -63,8 +63,11 @@ const itemVariants: Variants = {
 export default function CategoryPage() {
   const params = useParams();
   const slug = params?.slug as string;
-  const [books, setBooks] = useState<Book[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [books, setBooks] = useState<Book[]>(() => {
+    if (!slug) return [];
+    return api.getInitialBooks().filter(b => matchesSlug(b.category, slug));
+  });
+  const [loading, setLoading] = useState(false);
 
   const categoryName = slug ? (categoryNames[slug] || slug) : '';
 

@@ -87,7 +87,7 @@ export default function BookReaderPage({ params }: { params: Promise<{ id: strin
   const resolvedParams = use(params);
   const router = useRouter();
   const bookId = resolvedParams.id;
-  const [book, setBook] = useState<Book | null>(null);
+  const [book, setBook] = useState<Book | null>(() => api.getInitialBook(bookId));
 
   // Reader Customization State
   const [theme, setTheme] = useState<'light' | 'dark' | 'sepia'>('dark');

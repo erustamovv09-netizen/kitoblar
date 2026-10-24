@@ -63,23 +63,26 @@ export default function BookDetails() {
   const params = useParams();
   const id = params?.id as string;
 
-  const [book, setBook] = useState<Book | null>(null);
-  const [recommended, setRecommended] = useState<Book[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [currentRating, setCurrentRating] = useState<number>(5);
+  const [book, setBook] = useState<Book | null>(() => {
+    return id ? api.getInitialBook(id) : null;
+  });
+  const [recommended, setRecommended] = useState<Book[]>(() => {
+    return id ? api.getInitialRecommended(id) : [];
+  });
+  const [loading, setLoading] = useState(() => !book);
+  const [currentRating, setCurrentRating] = useState<number>(() => book?.rating || 5);
 
   useEffect(() => {
     if (!id) return;
     async function load() {
-      setLoading(true);
-      // Load book details and recommended books via API
+      // Load book details and recommended books via API in background
       try {
         const found = await api.getBook(id);
-        setBook(found);
         if (found) {
+          setBook(found);
           setCurrentRating(found.rating);
           const recs = await api.getRecommendedBooks(found.id);
-          setRecommended(recs || []);
+          if (recs && recs.length > 0) setRecommended(recs);
         }
       } catch (err) {
         console.error('Failed to load book:', err);

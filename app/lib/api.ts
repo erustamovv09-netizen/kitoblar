@@ -373,15 +373,95 @@ export function savePricingOverride(bookId: string, priceElectronic: number | nu
   } catch {}
 }
 
+// Synchronous initial books getter for instant 0ms rendering (no cold-start delay)
+export function getInitialBooks(): Book[] {
+  const deleted = getDeletedBookIds();
+  const coverOverrides = getCoverOverrides();
+  const discountOverrides = getDiscountOverrides();
+  const pricingOverrides = getPricingOverrides();
+
+  let rawList: any[] = [];
+  if (typeof window !== 'undefined') {
+    try {
+      const cached = localStorage.getItem('cached_full_books') || localStorage.getItem('cached_backend_books');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          rawList = parsed;
+        }
+      }
+    } catch {}
+  }
+
+  if (rawList.length === 0) {
+    rawList = booksDB as any[];
+  }
+
+  return rawList
+    .map(mapDjangoBookToBook)
+    .filter(b => !deleted.has(String(b.id)))
+    .map(b => {
+      const idStr = String(b.id);
+      const ov = discountOverrides[idStr];
+      const cov = coverOverrides[idStr];
+      const pov = pricingOverrides[idStr];
+      const pe = pov?.price_electronic ?? b.price_electronic;
+      const pp = pov?.price_paper ?? b.price_paper;
+      return {
+        ...b,
+        image: cov || b.image,
+        sale_price: ov ? ov.sale_price : b.sale_price,
+        discount_expires_at: ov ? ov.discount_expires_at : b.discount_expires_at,
+        discountExpiresAt: ov ? ov.discount_expires_at : b.discountExpiresAt,
+        price_electronic: pe,
+        price_paper: pp,
+        priceElectronic: formatPrice(pe),
+        pricePaper: formatPrice(pp),
+      };
+    });
+}
+
+export function getInitialHeroBook(): Book | null {
+  if (typeof window !== 'undefined') {
+    try {
+      const cached = localStorage.getItem('cached_hero_top_book');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && parsed.id) return parsed;
+      }
+    } catch {}
+  }
+  const books = getInitialBooks();
+  if (books.length === 0) return null;
+  return books.find(b => b.is_weekly_top || b.isWeeklyTop) || books[0];
+}
+
+export function getInitialBook(id: string | number): Book | null {
+  const idStr = String(id);
+  const all = getInitialBooks();
+  return all.find(b => String(b.id) === idStr) || null;
+}
+
+export function getInitialRecommended(excludeId: string | number): Book[] {
+  const idStr = String(excludeId);
+  const all = getInitialBooks();
+  return all.filter(b => String(b.id) !== idStr).slice(0, 3);
+}
+
 export const api = {
+  getInitialBooks,
+  getInitialHeroBook,
+  getInitialBook,
+  getInitialRecommended,
+
   // ── Books APIs ────────────────────────────────────────────────────────
   async getBooks(): Promise<Book[]> {
-    // ── 1. Try backend ────────────────────────────────────────────
+    // ── 1. Try backend with 4.5s timeout (Render cold starts won't stall the UI) ─
     let fromBackend = false;
     let raw: any[] = [];
     try {
       const res = await fetch(`${getBase()}/books/`, {
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(4500),
       });
       if (res.ok) {
         raw = await res.json();
@@ -399,7 +479,7 @@ export const api = {
     // ── 2. If backend is offline / cold-starting, use cached books if available ────
     if (!fromBackend && typeof window !== 'undefined') {
       try {
-        const cached = localStorage.getItem('cached_backend_books');
+        const cached = localStorage.getItem('cached_backend_books') || localStorage.getItem('cached_full_books');
         if (cached) {
           const parsed = JSON.parse(cached);
           if (Array.isArray(parsed) && parsed.length > 0) {
@@ -410,7 +490,14 @@ export const api = {
       } catch {}
     }
 
-    if (!fromBackend) raw = booksDB as any[];
+    // ── 3. Fallback to booksDB (contains all 6 real books, never empty) ───────────
+    if (!fromBackend || !raw || raw.length === 0) {
+      raw = booksDB as any[];
+      // Background non-blocking ping to wake Render if it was sleeping
+      if (typeof window !== 'undefined') {
+        fetch(`${getBase()}/books/`).catch(() => {});
+      }
+    }
 
     const books = Array.isArray(raw)
       ? raw.map(mapDjangoBookToBook)
@@ -420,182 +507,126 @@ export const api = {
     const deleted = getDeletedBookIds();
     const filtered = deleted.size > 0 ? books.filter(b => !deleted.has(String(b.id))) : books;
 
-    // ── 3a. Backend available → backend books are authoritative ──
-    if (fromBackend) {
-      const localEdits = getLocalAdminBooks();
-      const backendIds = new Set(filtered.map(b => String(b.id)));
-      // Chegirma, format narxlari va muqova rasm override lari
-      const discountOverrides = getDiscountOverrides();
-      const pricingOverrides = getPricingOverrides();
-      const coverOverrides = getCoverOverrides();
+    const localEdits = getLocalAdminBooks();
+    const backendIds = new Set(filtered.map(b => String(b.id)));
+    const discountOverrides = getDiscountOverrides();
+    const pricingOverrides = getPricingOverrides();
+    const coverOverrides = getCoverOverrides();
 
-      // Eski admin_books dagi rasmlarni cover_overrides ga ko'chirib saqlab qolamiz
-      if (typeof window !== 'undefined') {
-        try {
-          const stored: any[] = JSON.parse(localStorage.getItem('admin_books') || '[]');
-          let updatedCovers = false;
-          for (const b of stored) {
-            const bImg = b.image || b.imageUrl;
-            if (b?.id && bImg && !coverOverrides[String(b.id)]) {
-              coverOverrides[String(b.id)] = bImg;
-              updatedCovers = true;
-            }
+    if (typeof window !== 'undefined') {
+      try {
+        const stored: any[] = JSON.parse(localStorage.getItem('admin_books') || '[]');
+        let updatedCovers = false;
+        for (const b of stored) {
+          const bImg = b.image || b.imageUrl;
+          if (b?.id && bImg && !coverOverrides[String(b.id)]) {
+            coverOverrides[String(b.id)] = bImg;
+            updatedCovers = true;
           }
-          if (updatedCovers) {
-            localStorage.setItem('cover_overrides', JSON.stringify(coverOverrides));
-          }
-        } catch {}
-      }
+        }
+        if (updatedCovers) {
+          localStorage.setItem('cover_overrides', JSON.stringify(coverOverrides));
+        }
+      } catch {}
+    }
 
-      const localOnlyBooks = Object.values(localEdits)
-        .filter((e: any) => !backendIds.has(String(e.id)) && !deleted.has(String(e.id)))
-        .map((e: any) => {
-          const numBase = parseFloat(String(e.price || '0').replace(/[^\d.-]/g, '')) || 50000;
-          const priceOv = pricingOverrides[String(e.id)];
-          const pe = priceOv?.price_electronic ?? (e.price_electronic != null ? Number(e.price_electronic) : (e.priceElectronic ? Number(String(e.priceElectronic).replace(/\D/g, '')) : Math.max(10000, Math.round((numBase * 0.5) / 1000) * 1000)));
-          const pp = priceOv?.price_paper ?? (e.price_paper != null ? Number(e.price_paper) : (e.pricePaper ? Number(String(e.pricePaper).replace(/\D/g, '')) : Math.max(pe, numBase > 0 ? numBase : 60000)));
-          return {
-            id: String(e.id),
-            title: e.title || '',
-            author: e.author || '',
-            price: formatPrice(e.price),
-            rating: Number(e.rating) || 5,
-            image: fixMediaUrl(coverOverrides[String(e.id)] || e.image || e.imageUrl || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop'),
-            category: e.category || 'Badiiy',
-            description: e.description || '',
-            pages: Number(e.pages) || 0,
-            language: e.language || "O'zbek tili",
-            publishedYear: formatPublishedYear(e.publishedYear || e.year || '2024', e.title, e.id),
-            hasAudio: !!e.hasAudio,
-            audioUrl: fixMediaUrl(e.audioUrl || ''),
-            content: e.content || '',
-            is_weekly_top: Boolean(e.is_weekly_top || e.isWeeklyTop),
-            isWeeklyTop: Boolean(e.is_weekly_top || e.isWeeklyTop),
-            sale_price: e.sale_price != null ? Number(e.sale_price) : null,
-            salePrice: e.salePrice || '',
-            discount_expires_at: e.discount_expires_at || null,
-            discountExpiresAt: e.discount_expires_at || e.discountExpiresAt || null,
-            price_electronic: pe,
-            price_paper: pp,
-            priceElectronic: formatPrice(pe),
-            pricePaper: formatPrice(pp),
-          } as Book;
-        });
-
-      // Apply cover, discount and pricing overrides to backend books
-      const filteredWithOverrides = filtered.map(book => {
-        const ov = discountOverrides[String(book.id)];
-        const coverOv = coverOverrides[String(book.id)];
-        const priceOv = pricingOverrides[String(book.id)];
-        const pe = priceOv?.price_electronic ?? book.price_electronic;
-        const pp = priceOv?.price_paper ?? book.price_paper;
+    const localOnlyBooks = Object.values(localEdits)
+      .filter((e: any) => !backendIds.has(String(e.id)) && !deleted.has(String(e.id)))
+      .map((e: any) => {
+        const numBase = parseFloat(String(e.price || '0').replace(/[^\d.-]/g, '')) || 50000;
+        const priceOv = pricingOverrides[String(e.id)];
+        const pe = priceOv?.price_electronic ?? (e.price_electronic != null ? Number(e.price_electronic) : (e.priceElectronic ? Number(String(e.priceElectronic).replace(/\D/g, '')) : Math.max(10000, Math.round((numBase * 0.5) / 1000) * 1000)));
+        const pp = priceOv?.price_paper ?? (e.price_paper != null ? Number(e.price_paper) : (e.pricePaper ? Number(String(e.pricePaper).replace(/\D/g, '')) : Math.max(pe, numBase > 0 ? numBase : 60000)));
         return {
-          ...book,
-          image: coverOv || book.image,
-          sale_price: ov ? ov.sale_price : book.sale_price,
-          discount_expires_at: ov ? ov.discount_expires_at : book.discount_expires_at,
-          discountExpiresAt: ov ? ov.discount_expires_at : book.discountExpiresAt,
+          id: String(e.id),
+          title: e.title || '',
+          author: e.author || '',
+          price: formatPrice(e.price),
+          rating: Number(e.rating) || 5,
+          image: fixMediaUrl(coverOverrides[String(e.id)] || e.image || e.imageUrl || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop'),
+          category: e.category || 'Badiiy',
+          description: e.description || '',
+          pages: Number(e.pages) || 0,
+          language: e.language || "O'zbek tili",
+          publishedYear: formatPublishedYear(e.publishedYear || e.year || '2024', e.title, e.id),
+          hasAudio: !!e.hasAudio,
+          audioUrl: fixMediaUrl(e.audioUrl || ''),
+          content: e.content || '',
+          is_weekly_top: Boolean(e.is_weekly_top || e.isWeeklyTop),
+          isWeeklyTop: Boolean(e.is_weekly_top || e.isWeeklyTop),
+          sale_price: e.sale_price != null ? Number(e.sale_price) : null,
+          salePrice: e.salePrice || '',
+          discount_expires_at: e.discount_expires_at || null,
+          discountExpiresAt: e.discount_expires_at || e.discountExpiresAt || null,
           price_electronic: pe,
           price_paper: pp,
           priceElectronic: formatPrice(pe),
           pricePaper: formatPrice(pp),
-        };
+        } as Book;
       });
 
-      const result = [...filteredWithOverrides, ...localOnlyBooks].map(b => {
-        if (typeof window !== 'undefined') {
-          try {
-            const stored = localStorage.getItem(`book_rating_${b.id}`);
-            if (stored && !isNaN(Number(stored))) {
-              return { ...b, rating: Number(stored) };
-            }
-          } catch {}
-        }
-        return b;
-      });
-      if (typeof window !== 'undefined' && result.length > 0) {
+    const filteredWithOverrides = filtered.map(book => {
+      const edit = localEdits[book.id];
+      const base = edit ? { ...book, ...edit, id: book.id, price: formatPrice(edit.price || book.price) } : book;
+      const ov = discountOverrides[String(book.id)];
+      const coverOv = coverOverrides[String(book.id)];
+      const priceOv = pricingOverrides[String(book.id)];
+      const pe = priceOv?.price_electronic ?? base.price_electronic;
+      const pp = priceOv?.price_paper ?? base.price_paper;
+      return {
+        ...base,
+        image: coverOv || base.image,
+        sale_price: ov ? ov.sale_price : base.sale_price,
+        discount_expires_at: ov ? ov.discount_expires_at : base.discount_expires_at,
+        discountExpiresAt: ov ? ov.discount_expires_at : base.discountExpiresAt,
+        price_electronic: pe,
+        price_paper: pp,
+        priceElectronic: formatPrice(pe),
+        pricePaper: formatPrice(pp),
+      };
+    });
+
+    const result = [...filteredWithOverrides, ...localOnlyBooks].map(b => {
+      if (typeof window !== 'undefined') {
         try {
-          localStorage.setItem('cached_full_books', JSON.stringify(result));
+          const stored = localStorage.getItem(`book_rating_${b.id}`);
+          if (stored && !isNaN(Number(stored))) {
+            return { ...b, rating: Number(stored) };
+          }
         } catch {}
       }
-      return result;
-    }
+      return b;
+    });
 
-    // ── 3b. Backend offline → booksDB + localStorage-only books ──────────────
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && result.length > 0) {
       try {
-        const cachedFull = localStorage.getItem('cached_full_books');
-        if (cachedFull) {
-          const parsed = JSON.parse(cachedFull);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            return parsed;
-          }
-        }
+        localStorage.setItem('cached_full_books', JSON.stringify(result));
+        localStorage.setItem('cached_backend_books', JSON.stringify(raw));
       } catch {}
     }
-    const localEdits = getLocalAdminBooks();
-    const backendIds = new Set(filtered.map(b => b.id));
-    const coverOverrides = getCoverOverrides();
-    const discountOverrides = getDiscountOverrides();
 
-    const localOnlyBooks = Object.values(localEdits)
-      .filter((e: any) => !backendIds.has(String(e.id)) && !deleted.has(String(e.id)))
-      .map((e: any) => ({
-        id: String(e.id),
-        title: e.title || '',
-        author: e.author || '',
-        price: formatPrice(e.price),
-        rating: Number(e.rating) || 5,
-        image: fixMediaUrl(coverOverrides[String(e.id)] || e.image || e.imageUrl || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop'),
-        category: e.category || 'Badiiy',
-        description: e.description || '',
-        pages: Number(e.pages) || 0,
-        language: e.language || "O'zbek tili",
-        publishedYear: e.publishedYear || e.year || 2024,
-        hasAudio: !!e.hasAudio,
-        audioUrl: fixMediaUrl(e.audioUrl || ''),
-        content: e.content || '',
-        is_weekly_top: Boolean(e.is_weekly_top || e.isWeeklyTop),
-        isWeeklyTop: Boolean(e.is_weekly_top || e.isWeeklyTop),
-        sale_price: e.sale_price != null ? Number(e.sale_price) : null,
-        salePrice: e.salePrice || '',
-        discount_expires_at: e.discount_expires_at || null,
-        discountExpiresAt: e.discount_expires_at || e.discountExpiresAt || null,
-      } as Book));
-
-    return [
-      ...filtered.map(book => {
-        const edit = localEdits[book.id];
-        const ov = discountOverrides[String(book.id)];
-        const coverOv = coverOverrides[String(book.id)];
-        const base = edit ? { ...book, ...edit, id: book.id, price: formatPrice(edit.price || book.price) } : book;
-        return {
-          ...base,
-          image: coverOv || base.image,
-          sale_price: ov ? ov.sale_price : base.sale_price,
-          discount_expires_at: ov ? ov.discount_expires_at : base.discount_expires_at,
-          discountExpiresAt: ov ? ov.discount_expires_at : base.discountExpiresAt,
-        };
-      }),
-      ...localOnlyBooks,
-    ];
+    return result;
   },
 
-
-  async getBook(id: string): Promise<Book | null> {
+  async getBook(id: string | number): Promise<Book | null> {
+    const idStr = String(id);
     const coverOverrides = getCoverOverrides();
     const discountOverrides = getDiscountOverrides();
+    const pricingOverrides = getPricingOverrides();
 
     // 1. First check locally-created admin books (local_ IDs only)
-    if (typeof window !== 'undefined' && String(id).startsWith('local_')) {
+    if (typeof window !== 'undefined' && idStr.startsWith('local_')) {
       try {
         const adminBooks: any[] = JSON.parse(localStorage.getItem('admin_books') || '[]');
-        const localBook = adminBooks.find((b: any) => String(b.id) === String(id));
+        const localBook = adminBooks.find((b: any) => String(b.id) === idStr);
         if (localBook) {
-          const coverOv = coverOverrides[String(id)];
-          const discountOv = discountOverrides[String(id)];
+          const coverOv = coverOverrides[idStr];
+          const discountOv = discountOverrides[idStr];
+          const priceOv = pricingOverrides[idStr];
+          const pe = priceOv?.price_electronic ?? (localBook.price_electronic != null ? Number(localBook.price_electronic) : null);
+          const pp = priceOv?.price_paper ?? (localBook.price_paper != null ? Number(localBook.price_paper) : null);
           return {
-            id: String(localBook.id),
+            id: idStr,
             title: localBook.title || '',
             author: localBook.author || '',
             price: formatPrice(localBook.price),
@@ -614,26 +645,56 @@ export const api = {
             sale_price: discountOv ? discountOv.sale_price : (localBook.sale_price != null ? Number(localBook.sale_price) : null),
             discount_expires_at: discountOv ? discountOv.discount_expires_at : (localBook.discount_expires_at || null),
             discountExpiresAt: discountOv ? discountOv.discount_expires_at : (localBook.discount_expires_at || null),
+            price_electronic: pe,
+            price_paper: pp,
+            priceElectronic: formatPrice(pe),
+            pricePaper: formatPrice(pp),
           } as any;
         }
       } catch { }
     }
 
-    // 2. Fetch from backend
-    const localBook = booksDB.find((b) => b.id === id) || null;
-    const raw = await fetchWithFallback<any | null>(`/books/${id}/`, { method: 'GET' }, localBook);
-    const book = raw ? mapDjangoBookToBook(raw) : null;
+    // 2. Immediate local / cached book fallback so there's never a blank page
+    const localRaw = booksDB.find((b) => String(b.id) === idStr) || null;
+    let fallbackBook = localRaw ? mapDjangoBookToBook(localRaw) : null;
+
+    if (typeof window !== 'undefined') {
+      try {
+        const cachedStr = localStorage.getItem('cached_full_books') || localStorage.getItem('cached_backend_books');
+        if (cachedStr) {
+          const parsed = JSON.parse(cachedStr);
+          const match = Array.isArray(parsed) && parsed.find((b: any) => String(b.id) === idStr);
+          if (match) {
+            fallbackBook = mapDjangoBookToBook(match);
+          }
+        }
+      } catch {}
+    }
+
+    // 3. Try backend with a fast 4s timeout
+    let book = fallbackBook;
+    try {
+      const res = await fetch(`${getBase()}/books/${idStr}/`, {
+        signal: AbortSignal.timeout(4000),
+      });
+      if (res.ok) {
+        const freshRaw = await res.json();
+        if (freshRaw && freshRaw.id) {
+          book = mapDjangoBookToBook(freshRaw);
+        }
+      }
+    } catch {}
+
     if (book) {
-      const coverOv = coverOverrides[String(id)];
+      const coverOv = coverOverrides[idStr];
       if (coverOv) book.image = coverOv;
-      const discountOv = discountOverrides[String(id)];
+      const discountOv = discountOverrides[idStr];
       if (discountOv) {
         book.sale_price = discountOv.sale_price;
         book.discount_expires_at = discountOv.discount_expires_at;
         (book as any).discountExpiresAt = discountOv.discount_expires_at;
       }
-      const pricingOverrides = getPricingOverrides();
-      const priceOv = pricingOverrides[String(id)];
+      const priceOv = pricingOverrides[idStr];
       if (priceOv) {
         if (priceOv.price_electronic != null) {
           book.price_electronic = priceOv.price_electronic;
@@ -646,7 +707,7 @@ export const api = {
       }
       if (typeof window !== 'undefined') {
         try {
-          const stored = localStorage.getItem(`book_rating_${id}`);
+          const stored = localStorage.getItem(`book_rating_${idStr}`);
           if (stored && !isNaN(Number(stored))) {
             book.rating = Number(stored);
           }
@@ -655,12 +716,12 @@ export const api = {
       return book;
     }
 
-    // 3. Fallback to localStorage only if backend returned null
+    // 4. Fallback to localStorage admin_books
     const localEdits = getLocalAdminBooks();
-    const edit = localEdits[id];
+    const edit = localEdits[idStr];
     if (edit) {
       return {
-        id: String(id),
+        id: idStr,
         title: edit.title || '',
         author: edit.author || '',
         category: edit.category || 'Badiiy',
@@ -668,7 +729,7 @@ export const api = {
         description: edit.description || '',
         pages: edit.pages != null ? Number(edit.pages) : 0,
         language: edit.language || "O'zbek tili",
-        publishedYear: formatPublishedYear(edit.publishedYear || '2024', edit.title, id),
+        publishedYear: formatPublishedYear(edit.publishedYear || '2024', edit.title, idStr),
         rating: edit.rating != null ? Number(edit.rating) : 5,
         hasAudio: !!edit.hasAudio,
         audioUrl: fixMediaUrl(edit.audioUrl || ''),
@@ -678,13 +739,25 @@ export const api = {
         isWeeklyTop: Boolean(edit.is_weekly_top || edit.isWeeklyTop),
       } as any;
     }
+
     return null;
   },
 
-  async getRecommendedBooks(excludeId: string): Promise<Book[]> {
-    const localRecommended = booksDB.filter((b) => b.id !== excludeId).slice(0, 3);
-    const raw = await fetchWithFallback<any[]>(`/books/${excludeId}/recommended/`, { method: 'GET' }, localRecommended);
-    return Array.isArray(raw) ? raw.map(mapDjangoBookToBook) : localRecommended.map(mapDjangoBookToBook);
+  async getRecommendedBooks(excludeId: string | number): Promise<Book[]> {
+    const idStr = String(excludeId);
+    const localRecommended = getInitialRecommended(idStr);
+    try {
+      const res = await fetch(`${getBase()}/books/${idStr}/recommended/`, {
+        signal: AbortSignal.timeout(3000),
+      });
+      if (res.ok) {
+        const raw = await res.json();
+        if (Array.isArray(raw) && raw.length > 0) {
+          return raw.map(mapDjangoBookToBook);
+        }
+      }
+    } catch {}
+    return localRecommended;
   },
 
   // Delete a book — tries backend DELETE, also removes from local admin_books and adds to deleted_ids

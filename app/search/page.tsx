@@ -19,8 +19,8 @@ function SearchContent() {
   const searchParams = useSearchParams();
   const query = searchParams.get('q') || '';
   
-  const [books, setBooks] = useState<Book[]>([]);
-  const [booksLoading, setBooksLoading] = useState(true);
+  const [books, setBooks] = useState<Book[]>(() => api.getInitialBooks());
+  const [booksLoading, setBooksLoading] = useState(false);
 
   useEffect(() => {
     async function loadBooks() {

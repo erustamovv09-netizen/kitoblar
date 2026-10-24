@@ -171,8 +171,11 @@ function AksiyalarImage({ src, alt }: { src: string; alt: string }) {
 }
 
 export default function AksiyalarPage() {
-  const [discountedBooks, setDiscountedBooks] = useState<DiscountedBook[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [discountedBooks, setDiscountedBooks] = useState<DiscountedBook[]>(() => {
+    const initial = api.getInitialBooks();
+    return (initial || []).map(getDiscountInfo).filter(Boolean) as DiscountedBook[];
+  });
+  const [loading, setLoading] = useState(false);
   const [purchasedIds, setPurchasedIds] = useState<string[]>([]);
   const [selectedBookForPurchase, setSelectedBookForPurchase] = useState<DiscountedBook | null>(null);
 

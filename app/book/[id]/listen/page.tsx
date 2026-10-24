@@ -26,8 +26,8 @@ import styles from './listen.module.css';
 export default function ListenPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const router = useRouter();
-  const [book, setBook] = useState<Book | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [book, setBook] = useState<Book | null>(() => api.getInitialBook(resolvedParams.id));
+  const [loading, setLoading] = useState(() => !book);
 
   // Purchase & Access state (Audio is part of electronic book purchase)
   const PREVIEW_LIMIT = 30; // 30 soniyalik bepul audio namuna

@@ -25,26 +25,14 @@ const itemVariants: Variants = {
 };
 
 export default function TrendingBooks() {
-  const [trending, setTrending] = useState<Book[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [trending, setTrending] = useState<Book[]>(() => {
+    return api.getInitialBooks();
+  });
+  const [loading, setLoading] = useState(false);
   const [showAllTrending, setShowAllTrending] = useState(false);
 
   useEffect(() => {
-    // 1. Agar cache mavjud bo'lsa darhol ko'rsatish (Render cold-start kutmasdan)
-    if (typeof window !== 'undefined') {
-      try {
-        const cached = localStorage.getItem('cached_full_books');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setTrending(parsed);
-            setLoading(false);
-          }
-        }
-      } catch {}
-    }
-
-    // 2. Eng yangi ma'lumotlarni olish
+    // Fondagi yangi ma'lumotlarni olish va yangilash
     async function load() {
       const data = await api.getBooks();
       if (data && data.length > 0) {

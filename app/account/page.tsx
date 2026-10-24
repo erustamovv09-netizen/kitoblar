@@ -142,7 +142,7 @@ export default function AccountPage() {
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
     const [errors, setErrors] = useState<{ name?: string; email?: string }>({});
-    const [books, setBooks] = useState<any[]>([]);
+    const [books, setBooks] = useState<any[]>(() => api.getInitialBooks());
     const activeBooksList = books.length > 0 ? books : booksDB;
     const [successMessage, setSuccessMessage] = useState('');
 

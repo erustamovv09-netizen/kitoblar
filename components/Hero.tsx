@@ -56,26 +56,14 @@ function HeroCountdown({ expiresAt }: { expiresAt: string }) {
 }
 
 export default function Hero() {
-  const [heroBook, setHeroBook] = useState<Book | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [heroBook, setHeroBook] = useState<Book | null>(() => {
+    return api.getInitialHeroBook();
+  });
+  const [loading, setLoading] = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
-
-    // 1. Keshdan darhol ko'rsatish
-    if (typeof window !== 'undefined') {
-      try {
-        const cached = localStorage.getItem('cached_hero_top_book');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (parsed && parsed.id) {
-            setHeroBook(parsed);
-            setLoading(false);
-          }
-        }
-      } catch {}
-    }
 
     async function load() {
       try {
@@ -85,19 +73,13 @@ export default function Hero() {
           const top = books.find(b => (b as any).is_weekly_top === true || (b as any).isWeeklyTop === true) || books[0];
           if (isMounted && top) {
             setHeroBook(top);
-            setLoading(false);
             try {
               localStorage.setItem('cached_hero_top_book', JSON.stringify(top));
             } catch {}
-            return;
           }
         }
       } catch (err) {
         console.error("Hero load error:", err);
-      }
-
-      if (isMounted) {
-        setLoading(false);
       }
     }
     load();
