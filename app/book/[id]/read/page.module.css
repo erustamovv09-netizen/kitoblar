@@ -521,19 +521,6 @@
   .navBtn span {
     display: none;
   }
-
-  .paywallOptionsGrid {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-
-  .paywallCard {
-    padding: 1.5rem 1rem;
-  }
-
-  .paywallTitle {
-    font-size: 1.35rem;
-  }
 }
 
 @media (max-width: 480px) {
@@ -668,6 +655,8 @@
   gap: 1.25rem;
   margin-bottom: 1.75rem;
   text-align: left;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .formatCard {
@@ -679,6 +668,8 @@
   border: 1px solid rgba(128, 128, 128, 0.2);
   transition: transform 0.2s ease, border-color 0.2s ease;
   position: relative;
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 .themeDark .formatCard {
@@ -852,4 +843,43 @@
   background: rgba(16, 185, 129, 0.15);
   color: #10b981;
   margin-left: auto;
+}
+
+/* Paywall Mobile Responsiveness */
+@media (max-width: 640px) {
+  .paywallCard {
+    padding: 1.5rem 1rem !important;
+    margin-top: 2rem !important;
+    border-radius: 16px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .paywallTitle {
+    font-size: 1.35rem !important;
+  }
+
+  .paywallDesc {
+    font-size: 0.9rem !important;
+    margin-bottom: 1.5rem !important;
+  }
+
+  .paywallOptionsGrid {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .formatCard {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 1.25rem 1rem !important;
+  }
+
+  .formatBtnPrimary,
+  .formatBtnSecondary {
+    padding: 0.85rem 1rem !important;
+    font-size: 0.92rem !important;
+  }
 }
