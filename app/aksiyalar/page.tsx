@@ -82,11 +82,71 @@ function CountdownTimer({ expiresAt }: { expiresAt: string }) {
   if (!mounted || !left) return null;
 
   return (
-    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', fontSize: '0.75rem', color: '#f87171', fontWeight: 700 }}>
-      <Clock size={13} />
-      {left.d > 0 && <span>{left.d}k </span>}
-      <span>{String(left.h).padStart(2, '0')}:{String(left.m).padStart(2, '0')}:{String(left.s).padStart(2, '0')}</span>
+    <div className={styles.timerBadge} title="Chegirma muddati tugashiga qolgan vaqt">
+      <Clock size={11} className={styles.timerIcon} />
+      <span>
+        {left.d > 0 && `${left.d}k `}
+        {String(left.h).padStart(2, '0')}:{String(left.m).padStart(2, '0')}:{String(left.s).padStart(2, '0')}
+      </span>
     </div>
+  );
+}
+
+function AksiyaBookRating({ bookId, initialRating }: { bookId: string | number; initialRating?: number }) {
+  const [rating, setRating] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem(`book_rating_${bookId}`);
+        if (stored && !isNaN(Number(stored))) return Number(stored);
+      } catch {}
+    }
+    return initialRating || 5;
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem(`book_rating_${bookId}`);
+        if (stored && !isNaN(Number(stored))) {
+          setRating(Number(stored));
+        } else {
+          api.getReviews(String(bookId)).then(revs => {
+            if (Array.isArray(revs) && revs.length > 0) {
+              const avg = Math.round((revs.reduce((sum, r) => sum + r.rating, 0) / revs.length) * 10) / 10;
+              setRating(avg);
+              try {
+                localStorage.setItem(`book_rating_${bookId}`, String(avg));
+                localStorage.setItem(`book_reviews_count_${bookId}`, String(revs.length));
+              } catch {}
+            }
+          }).catch(() => {});
+        }
+      } catch {}
+    }
+
+    const handleRatingUpdate = (e: any) => {
+      try {
+        if (e?.detail?.bookId && String(e.detail.bookId) !== String(bookId)) return;
+        if (e?.detail?.avg) {
+          setRating(Math.round(e.detail.avg * 10) / 10);
+        } else if (typeof window !== 'undefined') {
+          const stored = localStorage.getItem(`book_rating_${bookId}`);
+          if (stored && !isNaN(Number(stored))) {
+            setRating(Number(stored));
+          }
+        }
+      } catch {}
+    };
+
+    window.addEventListener('reviews-updated', handleRatingUpdate);
+    return () => window.removeEventListener('reviews-updated', handleRatingUpdate);
+  }, [bookId, initialRating]);
+
+  return (
+    <span className={styles.ratingBadge}>
+      <Star size={12} fill="#f59e0b" color="#f59e0b" />
+      <span>{rating}</span>
+    </span>
   );
 }
 
@@ -102,7 +162,7 @@ function AksiyalarImage({ src, alt }: { src: string; alt: string }) {
       src={img}
       alt={alt}
       fill
-      sizes="(max-width: 768px) 100vw, 300px"
+      sizes="(max-width: 768px) 50vw, 300px"
       className={styles.bookImg}
       unoptimized
       onError={() => setImg(FALLBACK)}
@@ -191,12 +251,12 @@ export default function AksiyalarPage() {
           {loading ? (
             <div className={styles.booksGrid}>
               {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className={styles.bookCard} style={{ minHeight: '380px' }}>
-                  <div className="skeleton" style={{ width: '100%', height: '240px' }} />
-                  <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <div className="skeleton" style={{ height: '14px', width: '40%', borderRadius: '6px' }} />
-                    <div className="skeleton" style={{ height: '20px', width: '85%', borderRadius: '6px' }} />
-                    <div className="skeleton" style={{ height: '14px', width: '60%', borderRadius: '6px' }} />
+                <div key={i} className={styles.bookCard}>
+                  <div className="skeleton" style={{ width: '100%', aspectRatio: '3 / 4' }} />
+                  <div style={{ padding: '0.85rem 0.65rem', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div className="skeleton" style={{ height: '12px', width: '40%', borderRadius: '4px' }} />
+                    <div className="skeleton" style={{ height: '16px', width: '85%', borderRadius: '4px' }} />
+                    <div className="skeleton" style={{ height: '12px', width: '60%', borderRadius: '4px' }} />
                   </div>
                 </div>
               ))}
@@ -243,7 +303,7 @@ export default function AksiyalarPage() {
                   transition={{ duration: 0.4, delay: (index % 4) * 0.1 }}
                 >
                   <div className={styles.discountRibbon}>
-                    <Percent size={13} />
+                    <Percent size={11} />
                     -{book.discountPercent}% AKSIYA
                   </div>
 
@@ -255,10 +315,7 @@ export default function AksiyalarPage() {
                     <div>
                       <div className={styles.bookMeta}>
                         <span className={styles.bookCategory}>{book.category || 'Adabiyot'}</span>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '3px', color: '#f59e0b', fontWeight: 600 }}>
-                          <Star size={13} fill="#f59e0b" color="#f59e0b" />
-                          {book.rating || 5}
-                        </span>
+                        <AksiyaBookRating bookId={book.id} initialRating={book.rating} />
                       </div>
                       <Link href={`/book/${book.id}`} style={{ textDecoration: 'none' }}>
                         <h3 className={styles.bookTitle}>{book.title}</h3>
@@ -268,7 +325,7 @@ export default function AksiyalarPage() {
 
                     <div>
                       {book.discountExpiresAt && (
-                        <div style={{ marginBottom: '6px' }}>
+                        <div>
                           <CountdownTimer expiresAt={book.discountExpiresAt} />
                         </div>
                       )}
@@ -282,11 +339,11 @@ export default function AksiyalarPage() {
                       </div>
                       <div className={styles.cardActions}>
                         <Link href={`/book/${book.id}`} className={styles.detailsBtn}>
-                          <Eye size={15} /> Batafsil
+                          <Eye size={13} /> Batafsil
                         </Link>
                         {purchasedIds.includes(String(book.id)) ? (
                           <Link href={`/book/${book.id}/read`} className={styles.purchasedBtn}>
-                            <CheckCircle2 size={15} /> O&apos;qish
+                            <CheckCircle2 size={13} /> O&apos;qish
                           </Link>
                         ) : (
                           <button
@@ -294,7 +351,7 @@ export default function AksiyalarPage() {
                             className={styles.buyBtn}
                             onClick={() => setSelectedBookForPurchase(book)}
                           >
-                            <ShoppingBag size={15} /> Xarid
+                            <ShoppingBag size={13} /> Xarid
                           </button>
                         )}
                       </div>
@@ -307,36 +364,26 @@ export default function AksiyalarPage() {
         </section>
 
         {/* Afzalliklar va Kafolatlar */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-          gap: '1.5rem',
-          marginTop: '4rem',
-          padding: '2rem',
-          borderRadius: '20px',
-          background: 'var(--card-bg)',
-          border: '1px solid var(--border-color)',
-          textAlign: 'center'
-        }}>
-          <div>
-            <ShieldCheck size={32} color="#10b981" style={{ margin: '0 auto 10px' }} />
-            <h4 style={{ margin: '0 0 6px', fontWeight: 700 }}>100% Kafolatlangan sifat</h4>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Barcha asarlar to&apos;liq va sifatli tahrirdan o&apos;tgan</p>
+        <div className={styles.benefitsSection}>
+          <div className={styles.benefitItem}>
+            <ShieldCheck size={28} color="#10b981" className={styles.benefitIcon} />
+            <h4 className={styles.benefitTitle}>100% Kafolatlangan sifat</h4>
+            <p className={styles.benefitText}>Barcha asarlar to&apos;liq va sifatli tahrirdan o&apos;tgan</p>
           </div>
-          <div>
-            <Tag size={32} color="#9b6dff" style={{ margin: '0 auto 10px' }} />
-            <h4 style={{ margin: '0 0 6px', fontWeight: 700 }}>Haqiqiy chegirmalar</h4>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Chegirmalar admin panel orqali belgilanadi va muddatli bo&apos;ladi</p>
+          <div className={styles.benefitItem}>
+            <Tag size={28} color="#9b6dff" className={styles.benefitIcon} />
+            <h4 className={styles.benefitTitle}>Haqiqiy chegirmalar</h4>
+            <p className={styles.benefitText}>Chegirmalar admin panel orqali belgilanadi va muddatli bo&apos;ladi</p>
           </div>
-          <div>
-            <Zap size={32} color="#f59e0b" style={{ margin: '0 auto 10px' }} />
-            <h4 style={{ margin: '0 0 6px', fontWeight: 700 }}>Tezkor dostup</h4>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Xarid qilgan zahotingiz darhol mutolaani boshlaysiz</p>
+          <div className={styles.benefitItem}>
+            <Zap size={28} color="#f59e0b" className={styles.benefitIcon} />
+            <h4 className={styles.benefitTitle}>Tezkor dostup</h4>
+            <p className={styles.benefitText}>Xarid qilgan zahotingiz darhol mutolaani boshlaysiz</p>
           </div>
-          <div>
-            <Gift size={32} color="#f43f5e" style={{ margin: '0 auto 10px' }} />
-            <h4 style={{ margin: '0 0 6px', fontWeight: 700 }}>Doimiy yangi aksiyalar</h4>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Har haftada yangi kitoblarga maxsus chegirmalar</p>
+          <div className={styles.benefitItem}>
+            <Gift size={28} color="#f43f5e" className={styles.benefitIcon} />
+            <h4 className={styles.benefitTitle}>Doimiy yangi aksiyalar</h4>
+            <p className={styles.benefitText}>Har haftada yangi kitoblarga maxsus chegirmalar</p>
           </div>
         </div>
       </div>
