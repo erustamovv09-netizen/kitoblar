@@ -87,17 +87,26 @@
 @media (max-width: 480px) {
   .container {
     padding: 0 0.75rem;
+    width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
   }
 
   .grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 0.65rem;
+    width: 100%;
+    box-sizing: border-box;
   }
 }
 
-@media (max-width: 340px) {
+@media (max-width: 360px) {
+  .container {
+    padding: 0 0.5rem;
+  }
+
   .grid {
-    grid-template-columns: 1fr;
-    gap: 1rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.5rem;
   }
 }
