@@ -191,7 +191,12 @@ function getStaticCoverForBook(bookId?: string, bookTitle?: string): string | nu
   const idStr = String(bookId || '').trim();
   if (idStr === '7' || t.includes('1500') || t.includes('maxbus')) return '/images/1500-yillik-maxbuslar.jpg';
   if (idStr === '4' || idStr === '5' || t.includes('arosat')) return '/images/arosat.jpg';
-  if (idStr === '1' || t.includes('binafsha')) return '/images/binafsha.jpeg';
+  if (idStr === '1' || t.includes('binafsha')) {
+    if (t.includes('1-qism') || t.includes('1 qism') || t.includes('birinchi')) {
+      return '/images/binafsha.jpeg';
+    }
+    return '/images/binafsha-2.jpg';
+  }
   if (idStr === '3' || t.includes('harom') || t.includes('ko‘z') || t.includes("ko'z") || t.includes('kozlaringni')) return '/images/kozlaringni-haromdan-saqla.jpg';
   return null;
 }

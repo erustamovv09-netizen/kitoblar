@@ -146,7 +146,10 @@ export function getStaticBookCover(id?: string | number, title?: string): string
     return '/images/arosat.jpg';
   }
   if (idStr === '1' || t.includes('binafsha')) {
-    return '/images/binafsha.jpeg';
+    if (t.includes('1-qism') || t.includes('1 qism') || t.includes('1-qismida') || t.includes('birinchi')) {
+      return '/images/binafsha.jpeg';
+    }
+    return '/images/binafsha-2.jpg';
   }
   if (idStr === '3' || t.includes('harom') || t.includes('ko‘z') || t.includes("ko'z") || t.includes('kozlaringni')) {
     return '/images/kozlaringni-haromdan-saqla.jpg';
@@ -193,7 +196,8 @@ function mapDjangoBookToBook(djangoBook: any): Book {
 
   const staticCover = getStaticBookCover(djangoBook.id, djangoBook.title);
   let rawImage = djangoBook.cover_image || djangoBook.image;
-  if (staticCover && (!rawImage || rawImage.includes('onrender.com/media/book_covers/') || rawImage.includes('unsplash.com/photo-1544947950'))) {
+  // Faqat rasm bo'sh bo'lsa yoki eski buzilgan 404 URL (Image_7_rEB0a9Z) yoki Unsplash bo'lsa zaxira muqovani olamiz
+  if (staticCover && (!rawImage || rawImage.includes('Image_7_rEB0a9Z.jpeg') || rawImage.includes('unsplash.com/photo-1544947950'))) {
     rawImage = staticCover;
   }
   if (!rawImage) {
@@ -309,7 +313,13 @@ export function getCoverOverrides(): Record<string, string> {
   if (typeof window === 'undefined') return {};
   try {
     const raw = localStorage.getItem('cover_overrides');
-    return raw ? JSON.parse(raw) : {};
+    const overrides = raw ? JSON.parse(raw) : {};
+    // Bugfix: Agar eski keshda 1-kitob (Binafsha shu'lasi 2-qism) uchun xato tarzda 1-qism rasmi ("/images/binafsha.jpeg") saqlanib qolgan bo'lsa, uni to'g'ri 2-qism rasmiga almashtiramiz
+    if (overrides['1'] === '/images/binafsha.jpeg') {
+      overrides['1'] = '/images/binafsha-2.jpg';
+      localStorage.setItem('cover_overrides', JSON.stringify(overrides));
+    }
+    return overrides;
   } catch { return {}; }
 }
 
@@ -407,9 +417,13 @@ export function getInitialBooks(): Book[] {
       const pov = pricingOverrides[idStr];
       const pe = pov?.price_electronic ?? b.price_electronic;
       const pp = pov?.price_paper ?? b.price_paper;
+      let finalCover = cov || b.image;
+      if (idStr === '1' && (finalCover === '/images/binafsha.jpeg' || !finalCover)) {
+        finalCover = '/images/binafsha-2.jpg';
+      }
       return {
         ...b,
-        image: cov || b.image,
+        image: finalCover,
         sale_price: ov ? ov.sale_price : b.sale_price,
         discount_expires_at: ov ? ov.discount_expires_at : b.discount_expires_at,
         discountExpiresAt: ov ? ov.discount_expires_at : b.discountExpiresAt,
@@ -519,9 +533,12 @@ export const api = {
         let updatedCovers = false;
         for (const b of stored) {
           const bImg = b.image || b.imageUrl;
-          if (b?.id && bImg && !coverOverrides[String(b.id)]) {
-            coverOverrides[String(b.id)] = bImg;
-            updatedCovers = true;
+          if (b?.id && bImg) {
+            if (String(b.id) === '1' && bImg === '/images/binafsha.jpeg') continue;
+            if (!coverOverrides[String(b.id)]) {
+              coverOverrides[String(b.id)] = bImg;
+              updatedCovers = true;
+            }
           }
         }
         if (updatedCovers) {
@@ -573,9 +590,13 @@ export const api = {
       const priceOv = pricingOverrides[String(book.id)];
       const pe = priceOv?.price_electronic ?? base.price_electronic;
       const pp = priceOv?.price_paper ?? base.price_paper;
+      let finalCover = coverOv || base.image;
+      if (String(book.id) === '1' && (finalCover === '/images/binafsha.jpeg' || !finalCover)) {
+        finalCover = '/images/binafsha-2.jpg';
+      }
       return {
         ...base,
-        image: coverOv || base.image,
+        image: finalCover,
         sale_price: ov ? ov.sale_price : base.sale_price,
         discount_expires_at: ov ? ov.discount_expires_at : base.discount_expires_at,
         discountExpiresAt: ov ? ov.discount_expires_at : base.discountExpiresAt,
@@ -688,6 +709,9 @@ export const api = {
     if (book) {
       const coverOv = coverOverrides[idStr];
       if (coverOv) book.image = coverOv;
+      if (idStr === '1' && (book.image === '/images/binafsha.jpeg' || !book.image)) {
+        book.image = '/images/binafsha-2.jpg';
+      }
       const discountOv = discountOverrides[idStr];
       if (discountOv) {
         book.sale_price = discountOv.sale_price;
@@ -962,13 +986,24 @@ export const api = {
 
       if (res.ok) {
         fromBackend = true;
+        try {
+          const updatedBook = await res.json();
+          if (updatedBook && (updatedBook.cover_image || updatedBook.image)) {
+            const newCov = fixMediaUrl(updatedBook.cover_image || updatedBook.image);
+            saveCoverOverride(String(id), newCov);
+          }
+        } catch {}
       }
     } catch { }
 
     // 2. Also sync to localStorage & permanent cover overrides
     if (typeof window !== 'undefined') {
       if (data.imageUrl || data.image) {
-        saveCoverOverride(String(id), data.imageUrl || data.image);
+        let imgToSave = data.imageUrl || data.image;
+        if (String(id) === '1' && imgToSave === '/images/binafsha.jpeg') {
+          imgToSave = '/images/binafsha-2.jpg';
+        }
+        saveCoverOverride(String(id), imgToSave);
       }
       if (pe != null || pp != null) {
         savePricingOverride(String(id), pe, pp);
