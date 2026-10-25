@@ -44,6 +44,10 @@ export default function FavoritesPage() {
     }, []);
 
     function clearAll() {
+        try {
+            const allIds = favorites.map(f => String(f.id));
+            localStorage.setItem('deleted_favorites', JSON.stringify(allIds));
+        } catch {}
         localStorage.removeItem('favorites');
         setFavorites([]);
         try { window.dispatchEvent(new CustomEvent('fav-updated')); } catch {}

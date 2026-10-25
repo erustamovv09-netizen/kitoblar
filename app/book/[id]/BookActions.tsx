@@ -104,13 +104,14 @@ export default function BookActions({ book, recommended }: { book: Book; recomme
 
     async function toggleFavorite() {
         try {
+            const bookCover = (book as any).image || (book as any).cover_image || (book as any).imageUrl || '';
             const nextState = await toggleFavoriteCloud({
                 id: String(book.id),
                 title: book.title,
                 author: book.author,
                 price: book.price,
                 rating: book.rating,
-                image: (book as any).image || '',
+                image: bookCover,
                 category: book.category,
             });
             setIsFav(nextState);

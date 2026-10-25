@@ -4,6 +4,8 @@
  * turli qurilmalar (noutbuk, telefon, planshet) o'rtasida real vaqtda bulut orqali sinxronlash moduli.
  */
 
+import { restoreUserSession } from './session';
+
 export interface FavoriteItem {
   id: string;
   title: string;
@@ -27,8 +29,9 @@ export interface PurchasedBookItem {
 
 function getActiveUser(): { username: string; email: string } | null {
   if (typeof window === 'undefined') return null;
-  const username = localStorage.getItem('username')?.trim() || '';
-  const email = localStorage.getItem('email')?.trim() || '';
+  const session = restoreUserSession();
+  const username = session?.username || localStorage.getItem('username')?.trim() || localStorage.getItem('name')?.trim() || '';
+  const email = session?.email || localStorage.getItem('email')?.trim() || '';
   if (!username && !email) return null;
   return { username, email };
 }
@@ -74,39 +77,48 @@ export async function syncUserFromCloud(
     const cloudData = result.data;
     let localChanged = false;
 
-    // 1. Sevimlilarni (Favorites) sinxronlash
+    // 1. Sevimlilarni (Favorites) xavfsiz sinxronlash (Merge/Union)
     try {
       const rawFav = localStorage.getItem('favorites');
       const localFavs: FavoriteItem[] = rawFav ? JSON.parse(rawFav) : [];
       const cloudFavs: FavoriteItem[] = Array.isArray(cloudData.favorites) ? cloudData.favorites : [];
 
-      if (result.isNew || options?.mergeGuestFavorites) {
-        // Yangi hisob yoki birinchi marta kirish: mahalliy sevimlilar bilan bulutni birlashtirish
-        const mergedMap = new Map<string, FavoriteItem>();
-        cloudFavs.forEach(f => f?.id && mergedMap.set(String(f.id), f));
-        localFavs.forEach(f => f?.id && mergedMap.set(String(f.id), f));
+      // Yaqinda o'chirilgan sevimlilar ro'yxati (qayta tirilmasligi uchun)
+      let deletedFavs: string[] = [];
+      try {
+        deletedFavs = JSON.parse(localStorage.getItem('deleted_favorites') || '[]');
+      } catch {}
 
-        const mergedList = Array.from(mergedMap.values());
-        const mergedStr = JSON.stringify(mergedList);
+      // Mahalliy va bulut sevimlilarini birlashtiramiz (Merge/Union):
+      // Foydalanuvchi hozirgina qo'shgan kitob hech qachon serverdagi eski kesh sababli o'chib ketmaydi!
+      const mergedMap = new Map<string, FavoriteItem>();
 
-        if (rawFav !== mergedStr) {
-          localStorage.setItem('favorites', mergedStr);
-          localChanged = true;
-          try { window.dispatchEvent(new CustomEvent('fav-updated')); } catch {}
+      // 1. Avval bulutdagi kitoblarni qo'shamiz (agar yaqinda o'chirilmagan bo'lsa)
+      cloudFavs.forEach(f => {
+        if (f?.id && !deletedFavs.includes(String(f.id))) {
+          mergedMap.set(String(f.id), f);
         }
+      });
 
-        if (mergedList.length > cloudFavs.length) {
-          pushDataToCloud({ favorites: mergedList });
+      // 2. So'ngra mahalliy sevimlilarni qo'shamiz (foydalanuvchi bosgan kitoblar ustuvor)
+      localFavs.forEach(f => {
+        if (f?.id && !deletedFavs.includes(String(f.id))) {
+          mergedMap.set(String(f.id), f);
         }
-      } else {
-        // Qurilmalararo sinxronlash: agar boshqa qurilmada (masalan, noutbukda) kitob qo'shilgan yoki o'chirilgan bo'lsa,
-        // telefonda ham aynan bulutdagi yangi holat aks etadi.
-        const cloudStr = JSON.stringify(cloudFavs);
-        if (rawFav !== cloudStr) {
-          localStorage.setItem('favorites', cloudStr);
-          localChanged = true;
-          try { window.dispatchEvent(new CustomEvent('fav-updated')); } catch {}
-        }
+      });
+
+      const mergedList = Array.from(mergedMap.values());
+      const mergedStr = JSON.stringify(mergedList);
+
+      if (rawFav !== mergedStr) {
+        localStorage.setItem('favorites', mergedStr);
+        localChanged = true;
+        try { window.dispatchEvent(new CustomEvent('fav-updated')); } catch {}
+      }
+
+      // Agar mahalliyda bulutdagidan ko'proq kitob bo'lsa, bulutni ham yangilaymiz
+      if (mergedList.length !== cloudFavs.length) {
+        pushDataToCloud({ favorites: mergedList });
       }
     } catch (e) {
       console.warn('Favorites sync error:', e);
@@ -238,25 +250,48 @@ export async function toggleFavoriteCloud(book: FavoriteItem): Promise<boolean> 
   try {
     const raw = localStorage.getItem('favorites');
     const list: FavoriteItem[] = raw ? JSON.parse(raw) : [];
-    const exists = list.some(f => String(f.id) === String(book.id));
+    const bookIdStr = String(book.id);
+    const exists = list.some(f => String(f.id) === bookIdStr);
 
     let next: FavoriteItem[];
+    let deletedFavs: string[] = [];
+    try {
+      deletedFavs = JSON.parse(localStorage.getItem('deleted_favorites') || '[]');
+    } catch {}
+
     if (exists) {
-      next = list.filter(f => String(f.id) !== String(book.id));
+      next = list.filter(f => String(f.id) !== bookIdStr);
+      if (!deletedFavs.includes(bookIdStr)) {
+        deletedFavs.push(bookIdStr);
+        localStorage.setItem('deleted_favorites', JSON.stringify(deletedFavs));
+      }
     } else {
-      next = [book, ...list];
+      // Qayta qo'shilganda deleted ro'yxatidan tozalaymiz
+      deletedFavs = deletedFavs.filter(id => id !== bookIdStr);
+      localStorage.setItem('deleted_favorites', JSON.stringify(deletedFavs));
+
+      const cleanBook: FavoriteItem = {
+        id: bookIdStr,
+        title: book.title || '',
+        author: book.author || '',
+        price: book.price || '',
+        rating: Number(book.rating) || 5,
+        image: book.image || '',
+        category: book.category || 'Badiiy',
+      };
+      next = [cleanBook, ...list.filter(f => String(f.id) !== bookIdStr)];
     }
 
     localStorage.setItem('favorites', JSON.stringify(next));
 
     try {
-      window.dispatchEvent(new CustomEvent('fav-updated', { detail: { bookId: book.id, isFav: !exists } }));
+      window.dispatchEvent(new CustomEvent('fav-updated', { detail: { bookId: bookIdStr, isFav: !exists } }));
     } catch {}
 
     // Agar tizimga kirgan bo'lsa, bulutga darhol yuboramiz
     const user = getActiveUser();
     if (user) {
-      pushDataToCloud({ favorites: next });
+      await pushDataToCloud({ favorites: next });
     }
 
     return !exists;

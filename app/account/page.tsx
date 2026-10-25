@@ -868,10 +868,26 @@ export default function AccountPage() {
     }
 
     function addFavoriteDirect(id: string, title: string) {
-        if (favorites.some(f => f.id === id)) return;
-        const next = [...favorites, { id, title }];
+        const idStr = String(id);
+        if (favorites.some(f => String(f.id) === idStr)) return;
+        const fullBook = activeBooksList.find(b => String(b.id) === idStr);
+        const newFavItem: any = {
+            id: idStr,
+            title: title || fullBook?.title || '',
+            author: fullBook?.author || '',
+            image: fullBook?.image || '',
+            rating: fullBook?.rating || 5,
+            price: fullBook?.price || '',
+            category: fullBook?.category || 'Badiiy'
+        };
+        const next = [...favorites, newFavItem];
         setFavorites(next);
         localStorage.setItem('favorites', JSON.stringify(next));
+        try {
+            const deleted = JSON.parse(localStorage.getItem('deleted_favorites') || '[]');
+            const filteredDeleted = deleted.filter((d: string) => d !== idStr);
+            localStorage.setItem('deleted_favorites', JSON.stringify(filteredDeleted));
+        } catch {}
         logEvent(`"${title}" kitobi sevimlilarga qo'shildi`, 'favorite');
         setSuccessMessage('Kitob sevimlilarga qo‘shildi');
         setTimeout(() => setSuccessMessage(''), 2500);
@@ -880,15 +896,27 @@ export default function AccountPage() {
     }
 
     function removeFavoriteDirect(id: string, title: string) {
-        const next = favorites.filter((f) => f.id !== id);
+        const idStr = String(id);
+        const next = favorites.filter((f) => String(f.id) !== idStr);
         setFavorites(next);
         localStorage.setItem('favorites', JSON.stringify(next));
+        try {
+            const deleted = JSON.parse(localStorage.getItem('deleted_favorites') || '[]');
+            if (!deleted.includes(idStr)) {
+                deleted.push(idStr);
+                localStorage.setItem('deleted_favorites', JSON.stringify(deleted));
+            }
+        } catch {}
         logEvent(`"${title}" kitobi sevimlilardan o'chirildi`, 'favorite');
         try { window.dispatchEvent(new CustomEvent('fav-updated')); } catch { }
         pushDataToCloud({ favorites: next });
     }
 
     function clearFavorites() {
+        try {
+            const allIds = favorites.map(f => String(f.id));
+            localStorage.setItem('deleted_favorites', JSON.stringify(allIds));
+        } catch {}
         setFavorites([]);
         localStorage.removeItem('favorites');
         logEvent('Barcha sevimli kitoblar o‘chirib tashlandi', 'favorite');
@@ -898,15 +926,20 @@ export default function AccountPage() {
 
     // Enrich favorites with full book info and status
     const enrichedFavorites = favorites.map(fav => {
-        const fullBook = activeBooksList.find(b => b.id === fav.id || b.title.toLowerCase() === fav.title.toLowerCase());
+        const favId = String(fav.id);
+        const favTitle = String(fav.title || '').toLowerCase().trim();
+        const fullBook = activeBooksList.find(b =>
+            String(b.id) === favId ||
+            (favTitle && String(b.title || '').toLowerCase().trim() === favTitle)
+        );
         return {
-            id: fav.id,
-            title: fav.title,
-            author: fullBook?.author || 'Noma\'lum muallif',
-            image: fullBook?.image || 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?q=80&w=200&auto=format&fit=crop',
-            rating: fullBook?.rating || 0,
-            price: fullBook?.price || 'Bepul',
-            status: bookStatuses[fav.id] || 'planned'
+            id: favId,
+            title: fav.title || fullBook?.title || 'Noma\'lum kitob',
+            author: (fav as any).author || fullBook?.author || 'Noma\'lum muallif',
+            image: (fav as any).image || fullBook?.image || '/images/binafsha-2.jpg',
+            rating: (fav as any).rating ?? fullBook?.rating ?? 5,
+            price: (fav as any).price || fullBook?.price || 'Bepul',
+            status: bookStatuses[favId] || 'planned'
         };
     });
 

@@ -18,6 +18,15 @@
         "rating": 5,
         "image": "https://kitoblar-backend.onrender.com/media/book_covers/Image_binafsha_2_aXiftsK.jpg",
         "category": "Badiiy asarlar"
+      },
+      {
+        "id": "2",
+        "title": "Odam bo'lish qiyin",
+        "author": "O'lmas Umarbekov",
+        "price": "45,000 so'm",
+        "rating": 5,
+        "image": "https://kitoblar-backend.onrender.com/media/book_covers/Image_3.jpeg",
+        "category": "Bolalar adabiyoti"
       }
     ],
     "purchasedBooks": [
@@ -35,7 +44,7 @@
     "bookStatuses": {},
     "quotes": [],
     "profile": {},
-    "lastUpdated": "2026-10-24T12:01:13.378Z"
+    "lastUpdated": "2026-10-25T12:36:11.126Z"
   },
   "rustamov": {
     "favorites": [
