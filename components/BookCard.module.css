@@ -153,10 +153,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: auto;
+  margin-top: auto !important;
   padding-top: 0.6rem;
   border-top: 1px solid var(--card-border);
-  margin-top: 0.75rem;
 }
 
 .rating {
@@ -277,7 +276,7 @@
 
   .footer {
     padding-top: 0.45rem;
-    margin-top: 0.45rem;
+    margin-top: auto !important;
   }
 
   .salePrice {
