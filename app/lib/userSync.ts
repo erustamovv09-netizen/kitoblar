@@ -49,8 +49,8 @@ export async function syncUserFromCloud(
   if (typeof window === 'undefined') return false;
 
   const now = Date.now();
-  // Too frequent requests debounce (kamida 2 soniya oraliq)
-  if (isSyncing || (now - lastSyncTime < 2000 && !overrideUsername)) {
+  // Too frequent requests debounce (kamida 3 soniya oraliq)
+  if (isSyncing || (now - lastSyncTime < 3000)) {
     return false;
   }
 

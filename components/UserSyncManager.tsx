@@ -23,12 +23,12 @@ export default function UserSyncManager() {
     window.addEventListener('auth-changed', handleSync);
     document.addEventListener('visibilitychange', handleVisibility);
 
-    // 3. Periodic background check every 25 seconds if tab is active
+    // 3. Periodic background check every 45 seconds if tab is active
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
         syncUserFromCloud();
       }
-    }, 25000);
+    }, 45000);
 
     return () => {
       window.removeEventListener('focus', handleSync);

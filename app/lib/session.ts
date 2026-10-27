@@ -35,13 +35,19 @@ export function deleteCookie(name: string) {
 /**
  * Foydalanuvchi hisobini doimiy saqlash (Login / Register / Profile update da ishlatiladi)
  */
-export function saveUserSession(user: UserSession) {
+export function saveUserSession(user: UserSession, options?: { skipEvent?: boolean }) {
   if (typeof window === 'undefined') return;
   const { username, name, email, join_date } = user;
   if (!username) return;
 
   const displayName = name || username;
   const cleanJoin = join_date ? formatUzbekDate(join_date) : '';
+
+  // Agar allaqachon xuddi shu ma'lumotlar saqlangan bo'lsa, hodisani takroran uzatmaymiz (rekursiv siklni to'xtatish)
+  const curUser = localStorage.getItem('username');
+  const curName = localStorage.getItem('name');
+  const curEmail = localStorage.getItem('email');
+  const isUnchanged = curUser === username && curName === displayName && (curEmail || '') === (email || '');
 
   // 1. localStorage — asosiy mijoz xotirasi
   try {
@@ -76,9 +82,12 @@ export function saveUserSession(user: UserSession) {
     console.warn('sessionStorage ga yozishda xatolik:', e);
   }
 
-  try {
-    window.dispatchEvent(new Event('auth-changed'));
-  } catch {}
+  // Faqat ma'lumot o'zgargandagina va skipEvent bo'lmagandagina hodisani uzatamiz
+  if (!isUnchanged && !options?.skipEvent) {
+    try {
+      window.dispatchEvent(new Event('auth-changed'));
+    } catch {}
+  }
 }
 
 /**
@@ -93,6 +102,8 @@ export function restoreUserSession(): UserSession | null {
   let join_date = localStorage.getItem('join_date');
   if (join_date) join_date = formatUzbekDate(join_date);
 
+  let recoveredFromBackup = false;
+
   // Agar localStorage dan yo'qolgan bo'lsa (masalan Safari tozalagan bo'lsa), cookie dan tiklaymiz
   if (!username) {
     try {
@@ -103,11 +114,13 @@ export function restoreUserSession(): UserSession | null {
         name = parsed.name || username;
         email = parsed.email || null;
         join_date = parsed.join_date || null;
+        if (username) recoveredFromBackup = true;
       } else {
         const simpleUsername = getCookie('username');
         if (simpleUsername) {
           username = simpleUsername;
           name = getCookie('name') || simpleUsername;
+          recoveredFromBackup = true;
         }
       }
     } catch {}
@@ -119,17 +132,20 @@ export function restoreUserSession(): UserSession | null {
       username = sessionStorage.getItem('auth_username');
       name = sessionStorage.getItem('auth_name') || username;
       email = sessionStorage.getItem('auth_email');
+      if (username) recoveredFromBackup = true;
     } catch {}
   }
 
-  // Agar birorta qatlamda topilsa, barcha qatlamlarni (localStorage, cookie, sessionStorage) sinxronlashtiramiz
   if (username) {
-    saveUserSession({
-      username,
-      name: name || username,
-      email: email || undefined,
-      join_date: join_date || undefined
-    });
+    // Faqat cookie yoki sessionStorage dan yangi tiklangan taqdirdagina zaxiraga yozamiz (skipEvent bilan, rekursiyani oldini olish)
+    if (recoveredFromBackup) {
+      saveUserSession({
+        username,
+        name: name || username,
+        email: email || undefined,
+        join_date: join_date || undefined
+      }, { skipEvent: true });
+    }
     return {
       username,
       name: name || username,
