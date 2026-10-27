@@ -75,7 +75,10 @@ function CountdownTimer({ expiresAt }: { expiresAt: string }) {
   useEffect(() => {
     setMounted(true);
     setLeft(calcLeft());
-    const t = setInterval(() => setLeft(calcLeft()), 1000);
+    const t = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      setLeft(calcLeft());
+    }, 1000);
     return () => clearInterval(t);
   }, [expiresAt]);
 
@@ -98,7 +101,7 @@ function AksiyaBookRating({ bookId, initialRating }: { bookId: string | number; 
       try {
         const stored = localStorage.getItem(`book_rating_${bookId}`);
         if (stored && !isNaN(Number(stored))) return Number(stored);
-      } catch {}
+      } catch { }
     }
     return initialRating || 5;
   });
@@ -110,18 +113,19 @@ function AksiyaBookRating({ bookId, initialRating }: { bookId: string | number; 
         if (stored && !isNaN(Number(stored))) {
           setRating(Number(stored));
         } else {
-          api.getReviews(String(bookId)).then(revs => {
+          // Mahalliy xotiradagi sharhlarni 0ms kechikish bilan o'qish (tarmoqni band qilmaydi)
+          const rawRevs = localStorage.getItem(`reviews_${bookId}`);
+          if (rawRevs) {
+            const revs = JSON.parse(rawRevs);
             if (Array.isArray(revs) && revs.length > 0) {
-              const avg = Math.round((revs.reduce((sum, r) => sum + r.rating, 0) / revs.length) * 10) / 10;
+              const avg = Math.round((revs.reduce((sum: number, r: any) => sum + Number(r.rating || 5), 0) / revs.length) * 10) / 10;
               setRating(avg);
-              try {
-                localStorage.setItem(`book_rating_${bookId}`, String(avg));
-                localStorage.setItem(`book_reviews_count_${bookId}`, String(revs.length));
-              } catch {}
+              localStorage.setItem(`book_rating_${bookId}`, String(avg));
+              localStorage.setItem(`book_reviews_count_${bookId}`, String(revs.length));
             }
-          }).catch(() => {});
+          }
         }
-      } catch {}
+      } catch { }
     }
 
     const handleRatingUpdate = (e: any) => {
@@ -135,7 +139,7 @@ function AksiyaBookRating({ bookId, initialRating }: { bookId: string | number; 
             setRating(Number(stored));
           }
         }
-      } catch {}
+      } catch { }
     };
 
     window.addEventListener('reviews-updated', handleRatingUpdate);
@@ -189,7 +193,7 @@ export default function AksiyalarPage() {
             setPurchasedIds(list.map((p: any) => String(p.id)));
           }
         }
-      } catch {}
+      } catch { }
     }
     readPurchases();
     window.addEventListener('book-purchased', readPurchases);
@@ -281,7 +285,7 @@ export default function AksiyalarPage() {
                 Hozircha aktiv aksiya yo&apos;q
               </h3>
               <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', margin: '0 auto 1.5rem' }}>
-                Admin panel orqali kitoblarga chegirma qo&apos;shilgandan so&apos;ng aksiyalar bu yerda avtomatik ko&apos;rinadi.
+                Admin kitoblarga chegirma qo&apos;shgandan so&apos;ng aksiyalar bu yerda avtomatik ko&apos;rinadi.
               </p>
               <Link
                 href="/books"

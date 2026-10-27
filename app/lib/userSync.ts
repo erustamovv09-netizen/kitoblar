@@ -68,7 +68,9 @@ export async function syncUserFromCloud(
     if (username) params.set('username', username);
     if (email) params.set('email', email);
 
-    const res = await fetch(`/api/user/sync?${params.toString()}`);
+    const res = await fetch(`/api/user/sync?${params.toString()}`, {
+      signal: AbortSignal.timeout(5000),
+    });
     if (!res.ok) throw new Error('Sinxronlash so\'rovi xatosi');
 
     const result = await res.json();
@@ -232,6 +234,7 @@ export async function pushDataToCloud(data: {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(5000),
     });
 
     return res.ok;

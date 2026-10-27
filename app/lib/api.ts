@@ -13,10 +13,10 @@ export const getApiBaseUrl = (): string => {
     if (isLocal) {
       return `http://${host}:8000/api`;
     }
-    // Live domain (e.g. kitoblar.shop)
-    return `${window.location.origin}/api`;
+    // Live domain (e.g. kitoblar.shop) -> to'g'ridan-to'g'ri backend manziliga yo'naltiramiz
+    return 'https://kitoblar-backend.onrender.com/api';
   }
-  return "http://127.0.0.1:8000/api";
+  return "https://kitoblar-backend.onrender.com/api";
 };
 
 export const getBackendBaseUrl = (): string => {
@@ -34,11 +34,9 @@ export const getBackendBaseUrl = (): string => {
     if (isLocal) {
       return `http://${host}:8000`;
     }
-    // On production domain, backend is on render — use env var pattern
-    // Fallback: same origin (reverse proxy setup)
-    return window.location.origin;
+    return 'https://kitoblar-backend.onrender.com';
   }
-  return "http://127.0.0.1:8000";
+  return "https://kitoblar-backend.onrender.com";
 };
 
 // Helper to always resolve the current API URL
@@ -80,9 +78,9 @@ async function fetchWithFallback<T>(
 ): Promise<T> {
   const url = `${getApiBaseUrl()}${endpoint}`;
 
-  // Create controller to implement timeout (e.g., 10 seconds for cloud cold starts)
+  // 3.5s timeout (brauzerni osilib qolishdan himoya qiladi)
   const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), 10000);
+  const id = setTimeout(() => controller.abort(), 3500);
 
   try {
     const response = await fetch(url, {
@@ -421,8 +419,16 @@ export function getInitialBooks(): Book[] {
       if (idStr === '1' && (finalCover === '/images/binafsha.jpeg' || !finalCover)) {
         finalCover = '/images/binafsha-2.jpg';
       }
+      let finalRating = b.rating;
+      if (typeof window !== 'undefined') {
+        try {
+          const stored = localStorage.getItem(`book_rating_${idStr}`);
+          if (stored && !isNaN(Number(stored))) finalRating = Number(stored);
+        } catch {}
+      }
       return {
         ...b,
+        rating: finalRating,
         image: finalCover,
         sale_price: ov ? ov.sale_price : b.sale_price,
         discount_expires_at: ov ? ov.discount_expires_at : b.discount_expires_at,
@@ -462,6 +468,9 @@ export function getInitialRecommended(excludeId: string | number): Book[] {
   return all.filter(b => String(b.id) !== idStr).slice(0, 3);
 }
 
+let activeBooksPromise: Promise<Book[]> | null = null;
+let memoryBooksCache: { data: Book[]; time: number } | null = null;
+
 export const api = {
   getInitialBooks,
   getInitialHeroBook,
@@ -470,9 +479,22 @@ export const api = {
 
   // ── Books APIs ────────────────────────────────────────────────────────
   async getBooks(): Promise<Book[]> {
-    // ── 1. Try backend with 4.5s timeout (Render cold starts won't stall the UI) ─
-    let fromBackend = false;
-    let raw: any[] = [];
+    // 1. So'nggi 25 soniyada yuklangan xotiradagi kitoblar bo'lsa darhol 0ms da qaytaramiz
+    const now = Date.now();
+    if (memoryBooksCache && (now - memoryBooksCache.time < 25000)) {
+      return memoryBooksCache.data;
+    }
+
+    // 2. Bir vaqtning o'zida bir nechta komponent so'rasa bitta so'rovni ulashamiz
+    if (activeBooksPromise) {
+      return activeBooksPromise;
+    }
+
+    activeBooksPromise = (async () => {
+      try {
+        // ── 1. Try backend with 4.5s timeout (Render cold starts won't stall the UI) ─
+        let fromBackend = false;
+        let raw: any[] = [];
     try {
       const res = await fetch(`${getBase()}/books/`, {
         signal: AbortSignal.timeout(4500),
@@ -507,9 +529,9 @@ export const api = {
     // ── 3. Fallback to booksDB (contains all 6 real books, never empty) ───────────
     if (!fromBackend || !raw || raw.length === 0) {
       raw = booksDB as any[];
-      // Background non-blocking ping to wake Render if it was sleeping
+      // Background non-blocking ping to wake Render if it was sleeping (timeout bilan, tarmoqni band qilmaydi)
       if (typeof window !== 'undefined') {
-        fetch(`${getBase()}/books/`).catch(() => {});
+        fetch(`${getBase()}/books/`, { signal: AbortSignal.timeout(4000) }).catch(() => {});
       }
     }
 
@@ -626,7 +648,14 @@ export const api = {
       } catch {}
     }
 
-    return result;
+        memoryBooksCache = { data: result, time: Date.now() };
+        return result;
+      } finally {
+        activeBooksPromise = null;
+      }
+    })();
+
+    return activeBooksPromise;
   },
 
   async getBook(id: string | number): Promise<Book | null> {

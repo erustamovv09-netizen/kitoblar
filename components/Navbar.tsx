@@ -1,9 +1,10 @@
 "use client";
 import Link from 'next/link';
 import { BookOpen, Search, Heart, User, Sun, Moon, Menu, X, LogOut, LogIn, BarChart2, ChevronDown } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { restoreUserSession } from '@/app/lib/session';
+import { getApiBaseUrl } from '@/app/lib/api';
 import styles from './Navbar.module.css';
 
 export default function Navbar() {
@@ -135,21 +136,26 @@ export default function Navbar() {
     };
   }, []);
 
-  // Ping Activity
+  // Ping Activity (throttled to at most once every 60s, with 2.5s timeout)
+  const lastPingRef = useRef<number>(0);
   useEffect(() => {
     if (isLoggedIn) {
+      const now = Date.now();
+      if (now - lastPingRef.current < 60000) return;
+      lastPingRef.current = now;
+
       const username = localStorage.getItem('username');
       if (username) {
-        const host = typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1';
-        const baseUrl = `http://${host}:8000/api`;
+        const baseUrl = getApiBaseUrl();
         fetch(`${baseUrl}/auth/ping/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username })
+          body: JSON.stringify({ username }),
+          signal: AbortSignal.timeout(2500),
         }).catch(() => { });
       }
     }
-  }, [isLoggedIn, router]);
+  }, [isLoggedIn, pathname]);
 
   const toggleTheme = () => {
     const nextTheme = theme === 'dark' ? 'light' : 'dark';

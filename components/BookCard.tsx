@@ -43,6 +43,7 @@ function CardCountdown({ expiresAt }: { expiresAt: string }) {
     setMounted(true);
     setLeft(calc());
     const t = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       setLeft(calc());
     }, 1000);
     return () => clearInterval(t);
@@ -75,7 +76,20 @@ export default function BookCard({
   discount_expires_at,
   discountExpiresAt,
 }: BookCardProps) {
-  const [isFav, setIsFav] = useState(false);
+  const [isFav, setIsFav] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('favorites');
+        if (raw) {
+          const favs = JSON.parse(raw);
+          if (Array.isArray(favs)) {
+            return favs.some((f: any) => String(f.id) === String(id));
+          }
+        }
+      } catch {}
+    }
+    return false;
+  });
   const [imgSrc, setImgSrc] = useState(image || FALLBACK_IMAGE);
   const [currentRating, setCurrentRating] = useState<number>(() => {
     if (typeof window !== 'undefined') {
@@ -101,20 +115,23 @@ export default function BookCard({
   }, [image]);
 
   useEffect(() => {
-    const updateFavState = () => {
+    const updateFavState = (e?: any) => {
+      // Faqat shu kitobga tegishli hodisa bo'lsa yoki umumiy yangilanish bo'lsa yangilaymiz
+      if (e?.detail?.bookId && String(e.detail.bookId) !== String(id)) {
+        return;
+      }
       try {
         const raw = localStorage.getItem('favorites');
         if (!raw) {
           setIsFav(false);
           return;
         }
-        const favs: BookCardProps[] = JSON.parse(raw);
-        setIsFav(favs.some(f => String(f.id) === String(id)));
+        const favs = JSON.parse(raw);
+        setIsFav(Array.isArray(favs) ? favs.some((f: any) => String(f.id) === String(id)) : false);
       } catch (e) {
         setIsFav(false);
       }
     };
-    updateFavState();
     window.addEventListener('fav-updated', updateFavState);
     window.addEventListener('storage', updateFavState);
     return () => {
@@ -130,16 +147,17 @@ export default function BookCard({
         if (stored && !isNaN(Number(stored))) {
           setCurrentRating(Number(stored));
         } else {
-          api.getReviews(id).then(revs => {
+          // Mahalliy xotiradagi sharhlarni 0ms kechikish bilan o'qish (tarmoqni band qilmaydi)
+          const rawRevs = localStorage.getItem(`reviews_${id}`);
+          if (rawRevs) {
+            const revs = JSON.parse(rawRevs);
             if (Array.isArray(revs) && revs.length > 0) {
-              const avg = Math.round((revs.reduce((sum, r) => sum + r.rating, 0) / revs.length) * 10) / 10;
+              const avg = Math.round((revs.reduce((sum: number, r: any) => sum + Number(r.rating || 5), 0) / revs.length) * 10) / 10;
               setCurrentRating(avg);
-              try {
-                localStorage.setItem(`book_rating_${id}`, String(avg));
-                localStorage.setItem(`book_reviews_count_${id}`, String(revs.length));
-              } catch {}
+              localStorage.setItem(`book_rating_${id}`, String(avg));
+              localStorage.setItem(`book_reviews_count_${id}`, String(revs.length));
             }
-          }).catch(() => {});
+          }
         }
       } catch {}
     }
