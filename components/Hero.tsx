@@ -56,14 +56,23 @@ function HeroCountdown({ expiresAt }: { expiresAt: string }) {
 }
 
 export default function Hero() {
-  const [heroBook, setHeroBook] = useState<Book | null>(() => {
-    return api.getInitialHeroBook();
-  });
+  const [heroBook, setHeroBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
+
+    // Avval localStorage'dan cached kitobni olamiz (faqat client-side'da)
+    try {
+      const cached = localStorage.getItem('cached_hero_top_book');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && parsed.id && isMounted) {
+          setHeroBook(parsed);
+        }
+      }
+    } catch {}
 
     async function load() {
       try {
@@ -86,8 +95,8 @@ export default function Hero() {
     return () => { isMounted = false; };
   }, []);
 
-  // Backenddan haqiqiy kitob yuklanguncha chiroyli skeleton ko'rsatish (eski soxta kitob ko'rinmaydi)
-  if (loading && !heroBook) {
+  // Backenddan haqiqiy kitob yuklanguncha chiroyli skeleton ko'rsatish
+  if (!heroBook) {
     return (
       <section className={styles.hero}>
         <div className={styles.container}>
@@ -111,11 +120,6 @@ export default function Hero() {
         </div>
       </section>
     );
-  }
-
-  // Agar umuman kitob bo'lmasa, soxta e'lon chiqmasligi uchun hech narsa ko'rsatmaymiz
-  if (!heroBook) {
-    return null;
   }
 
   const bookTitle  = heroBook.title;
